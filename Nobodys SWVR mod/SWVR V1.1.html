@@ -1,0 +1,3018 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron&display=swap" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <title>Hunger Bar + Quest Generator</title>
+  
+<style>
+body {
+  background: url('blurred_background.jpg') no-repeat center center fixed;
+  background-size: cover;
+  font-family: 'Orbitron', sans-serif;
+  color: #c0e0ff;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+h1, h2 {
+  font-family: 'Orbitron', sans-serif;
+  color: #00c6ff;
+  text-shadow: 0 0 5px #0088cc;
+}
+#hungerBar {
+  width: 80%;
+  height: 30px;
+  background: #111;
+  border: 2px solid #00c6ff;
+  box-shadow: inset 0 0 10px #004477;
+  border-radius: 5px;
+  margin: 20px 0;
+  overflow: hidden;
+}
+#hungerFill {
+  height: 100%;
+  background: linear-gradient(to right, #00f7ff, #0051ff);
+  width: 100%;
+  transition: width 0.5s;
+  box-shadow: 0 0 5px #00f7ff;
+}
+#questBox {
+  background: rgba(0, 20, 40, 0.85);
+  border: 2px solid #0088cc;
+  box-shadow: 0 0 15px #004466;
+  padding: 20px;
+  border-radius: 8px;
+  width: 80%;
+  margin: 20px 0;
+}
+button {
+  padding: 10px 20px;
+  margin: 10px;
+  background: linear-gradient(to bottom, #0055aa, #003377);
+  color: white;
+  border: 1px solid #00aaff;
+  box-shadow: 0 0 8px #0077ff;
+  border-radius: 5px;
+  font-family: 'Orbitron', sans-serif;
+  cursor: pointer;
+}
+button:hover {
+  background: #002244;
+  box-shadow: 0 0 12px #00ccff;
+}
+#xpContainer {
+  margin-top: 20px;
+}
+#xpBar {
+  width: 100%;
+  height: 20px;
+  background: #222;
+  border: 1px solid #00c6ff;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 0 10px #004477;
+}
+#xpFill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(to right, #00ffcc, #0066ff);
+  transition: width 0.5s;
+  box-shadow: 0 0 5px #00ffff;
+}
+#levelUpPopup {
+  display: none;
+  position: fixed;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 3em;
+  font-family: 'Orbitron', sans-serif;
+  color: #00ffcc;
+  background: rgba(0, 20, 40, 0.9);
+  border: 3px solid #00c6ff;
+  padding: 20px 40px;
+  border-radius: 10px;
+  box-shadow: 0 0 30px #00f0ff;
+  z-index: 9999;
+}
+
+#affinityContainer {
+  width: 80%;
+  margin-top: 20px;
+  background: #111;
+  border: 2px solid #00c6ff;
+  box-shadow: inset 0 0 10px #004477;
+  border-radius: 5px;
+  padding: 10px;
+}
+#affinityLabel {
+  font-size: 1em;
+  margin-bottom: 8px;
+  color: #c0e0ff;
+}
+#affinityBar {
+  width: 100%;
+  height: 20px;
+  background: linear-gradient(to right, red 50%, blue 50%);
+  border-radius: 5px;
+  transition: background 0.5s;
+  box-shadow: 0 0 10px rgba(0,0,0,0.6);
+}
+
+
+#galacticTimePanel {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 8px 12px;
+  border: 1px solid cyan;
+  font-size: 14px;
+  color: white;
+  border-radius: 6px;
+  font-family: 'Orbitron', sans-serif;
+  z-index: 999;
+}
+
+</style>
+
+
+<style>
+#scanlines {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 255, 255, 0.02),
+    rgba(0, 255, 255, 0.02) 2px,
+    transparent 2px,
+    transparent 4px
+  );
+  z-index: 9998;
+  animation: scanmove 2s linear infinite;
+}
+@keyframes scanmove {
+  from { background-position: 0 0; }
+  to { background-position: 0 4px; }
+}
+</style>
+<div id="scanlines"></div>
+
+<style>
+.flicker {
+  animation: flickerAnim 1.5s infinite;
+}
+@keyframes flickerAnim {
+  0% { opacity: 0.97; }
+  5% { opacity: 0.9; }
+  10% { opacity: 1; }
+  15% { opacity: 0.94; }
+  20% { opacity: 0.96; }
+  100% { opacity: 0.97; }
+}
+</style>
+
+
+<script>
+function getCodenameRank(level, alignment) {
+  let rank = "Initiate";
+  if (level >= 5 && level < 10) rank = "Padawan";
+  else if (level >= 10 && level < 20) rank = "Knight";
+  else if (level >= 20 && level < 30) rank = "Master";
+  else if (level >= 30) rank = "Grand Master";
+
+  if (alignment === "Sith") {
+    if (level >= 5 && level < 10) rank = "Acolyte";
+    else if (level >= 10 && level < 20) rank = "Enforcer";
+    else if (level >= 20 && level < 30) rank = "Darth";
+    else if (level >= 30) rank = "Dark Lord";
+  }
+  return rank;
+}
+
+function updateCodenameDisplay() {
+  const level = parseInt(document.getElementById("level").innerText);
+  const affinity = document.getElementById("affinityText").innerText;
+  const codename = document.getElementById("codenameInput")?.value || "Player";
+  const rank = getCodenameRank(level, affinity);
+  document.getElementById("codenameDisplay").innerText = rank + " " + codename;
+}
+</script>
+</script>
+</script>
+
+</head>
+<body>
+  <h1>SWVR Quest HUD v.1.0</h1>
+
+<label for="codenameInput" style="margin-top: 10px; color: cyan; font-family: Orbitron;">Codename:</label>
+<input type="text" id="codenameInput" value="Player" oninput="updateCodenameDisplay()" 
+style="margin-left: 10px; padding: 5px; font-family: Orbitron; background: #001122; color: cyan; border: 1px solid #00c6ff; border-radius: 5px;" />
+
+<h2 id="codenameDisplay" style="margin-top: 0; text-shadow: 0 0 5px #00aaff;"></h2>
+  <div id="hungerBar" class="flicker"><div id="hungerFill"></div></div>
+  <button onclick="eat()">Eat</button>
+  <div id="questBox" class="flicker">
+    <h2>Quest</h2>
+    <p id="questText">Click generate to receive a quest.</p>
+
+<div id="xpContainer">
+
+<div id="affinityContainer" class="flicker">
+  <div id="affinityLabel">Force Alignment: <span id="affinityText">Neutral</span></div>
+  <div id="affinityBar"></div>
+</div>
+
+  <button onclick="saveProgress()">Save Progress</button>
+
+  <div id="xpBar" class="flicker"><div id="xpFill"></div></div>
+  <p><span id="xpText">0 / 100 XP</span> | Level: <span id="level">1</span></p>
+</div>
+
+    <button onclick="generateQuest()">Generate Quest</button>
+    <button onclick="completeQuest()">Complete Quest</button>
+    
+  </div>
+
+  <script>
+    let hunger = 100;
+    let xp = 0;
+    let level = 1;
+
+    function updateHungerBar() {
+      document.getElementById("hungerFill").style.width = hunger + "%";
+    }
+
+    function eat() {
+      hunger = 100;
+      updateHungerBar();
+    }
+
+    function generateQuest() {
+      const quest = quests[Math.floor(Math.random() * quests.length)];
+      document.getElementById("questText").innerText = quest.text;
+    }
+
+    function completeQuest() {
+  const questText = document.getElementById("questText").innerText.toLowerCase();
+  if (questText.includes("meditate") || questText.includes("rescue") || questText.includes("jedi") || questText.includes("protect")) adjustAffinity("jedi");
+  else if (questText.includes("sith") || questText.includes("kill") || questText.includes("dominate") || questText.includes("ambush")) adjustAffinity("sith");
+
+      xp += 25;
+      if (xp >= level * 100) {
+        xp = 0;
+        level += 1;
+        unlockLoreEntry(level);
+        
+const popup = document.getElementById("levelUpPopup");
+const sound = document.getElementById("levelUpSound");
+popup.style.display = "block";
+sound.play();
+setTimeout(() => {
+  popup.style.display = "none";
+}, 2000);
+
+      }
+      
+  document.getElementById("xpText").innerText = xp + " / " + (level * 100) + " XP";
+  document.getElementById("level").innerText = level;
+  updateCodenameDisplay();
+  document.getElementById("xpFill").style.width = (xp / (level * 100) * 100) + "%";
+  
+
+      document.getElementById("level").innerText = level;
+  updateCodenameDisplay();
+    }
+
+    setInterval(() => {
+      if (hunger > 0) {
+        hunger -= 0.05;
+        updateHungerBar();
+      }
+    }, 1000);
+
+    const quests = [
+  {
+    "id": 1,
+    "game": "Blade and Sorcery",
+    "text": "Defeat an enemy without ever taking a step backward — stand your ground like a true Jedi."
+  },
+  {
+    "id": 2,
+    "game": "Blade and Sorcery",
+    "text": "Engage in a saber duel using only your off-hand. No Force powers allowed."
+  },
+  {
+    "id": 3,
+    "game": "Blade and Sorcery",
+    "text": "Throw your lightsaber and retrieve it mid-air using Force Pull three times in one battle."
+  },
+  {
+    "id": 4,
+    "game": "Blade and Sorcery",
+    "text": "Fight through an entire wave of enemies using only telekinesis and the environment — no weapons."
+  },
+  {
+    "id": 5,
+    "game": "Blade and Sorcery",
+    "text": "Duel a Sith with a saberstaff and win without using any Force abilities."
+  },
+  {
+    "id": 6,
+    "game": "Blade and Sorcery",
+    "text": "Finish a fight using only one lightsaber strike per enemy. No multiple swings."
+  },
+  {
+    "id": 7,
+    "game": "Blade and Sorcery",
+    "text": "Use Force Push to launch three enemies into a lava pit or off a ledge on Mustafar."
+  },
+  {
+    "id": 8,
+    "game": "Blade and Sorcery",
+    "text": "Deflect 15 blaster bolts in a row without getting hit once."
+  },
+  {
+    "id": 9,
+    "game": "Blade and Sorcery",
+    "text": "Enter the Jedi Temple and meditate for 30 seconds before initiating combat."
+  },
+  {
+    "id": 10,
+    "game": "Blade and Sorcery",
+    "text": "Use only Force Choke and one lightsaber to defeat five enemies. No blocking."
+  },
+  {
+    "id": 11,
+    "game": "VRChat",
+    "text": "Walk the entire length of the Star Destroyer hallway without breaking character or responding to out-of-character chat."
+  },
+  {
+    "id": 12,
+    "game": "VRChat",
+    "text": "Enter the officer’s lounge (or mess hall) and tell an exaggerated war story to anyone who will listen."
+  },
+  {
+    "id": 13,
+    "game": "VRChat",
+    "text": "Secretly follow another player around the Star Destroyer. If they confront you, claim you're \"monitoring for Rebel activity.\""
+  },
+  {
+    "id": 14,
+    "game": "VRChat",
+    "text": "Pretend your comlink is receiving a distress signal from Tatooine. Try to convince others to help you investigate."
+  },
+  {
+    "id": 15,
+    "game": "VRChat",
+    "text": "Join a group and claim you were sent by the Emperor himself. Refuse to show proof and see how long you can maintain authority."
+  },
+  {
+    "id": 16,
+    "game": "VRChat",
+    "text": "Spend 5 minutes in total silence meditating in a Jedi Temple. If someone speaks to you, only respond with cryptic wisdom."
+  },
+  {
+    "id": 17,
+    "game": "VRChat",
+    "text": "Loudly accuse someone in the Star Destroyer of being a Rebel spy. Build a case using fake evidence."
+  },
+  {
+    "id": 18,
+    "game": "VRChat",
+    "text": "Find a group and convince them you’re forming a strike team. Assign them random roles and objectives."
+  },
+  {
+    "id": 19,
+    "game": "VRChat",
+    "text": "Locate a cargo area and claim one of the crates contains a forbidden holocron. Try to \"secure\" it while staying in-character."
+  },
+  {
+    "id": 20,
+    "game": "VRChat",
+    "text": "Walk into a group and whisper “Order 67 is in motion.” Refuse to elaborate and walk away."
+  },
+  {
+    "id": 21,
+    "game": "VRChat",
+    "text": "Pretend you're a Sith Inquisitor assigned to test everyone's Force sensitivity. Ask dramatic questions and react seriously."
+  },
+  {
+    "id": 22,
+    "game": "VRChat",
+    "text": "Sit beside a cantina stage and cheer loudly for every performance — even if there isn’t one. Try to get others to join."
+  },
+  {
+    "id": 23,
+    "game": "VRChat",
+    "text": "Pick a random hallway and pace it like you're patrolling. Salute anyone who walks past."
+  },
+  {
+    "id": 24,
+    "game": "VRChat",
+    "text": "Infiltrate the Jedi Temple dressed as a Sith and attempt to \"blend in\" while quoting Sith philosophy."
+  },
+  {
+    "id": 25,
+    "game": "VRChat",
+    "text": "Pretend you’ve forgotten your identity and ask others in-character for help uncovering who you are."
+  },
+  {
+    "id": 26,
+    "game": "VRChat",
+    "text": "Start a Jedi training session for younglings (real or imagined). Teach three made-up Force lessons."
+  },
+  {
+    "id": 27,
+    "game": "VRChat",
+    "text": "Use emotes to silently reenact a battle that happened “on Naboo.” Do not speak until someone asks what you’re doing."
+  },
+  {
+    "id": 28,
+    "game": "VRChat",
+    "text": "Offer \"emergency Force healing\" to injured players, whether they need it or not."
+  },
+  {
+    "id": 29,
+    "game": "VRChat",
+    "text": "Deliver a dramatic monologue to the mirror in the Star Destroyer’s hangar, as if you’re questioning your destiny."
+  },
+  {
+    "id": 30,
+    "game": "VRChat",
+    "text": "Sit in the captain’s chair on the bridge and issue fake commands to imaginary fleets over your"
+  },
+  {
+    "id": 31,
+    "game": "VRChat",
+    "text": "Create your own Jedi or Sith rank and introduce yourself to others with that title. Remain consistent in your story."
+  },
+  {
+    "id": 32,
+    "game": "VRChat",
+    "text": "Drop a random item on the ground and claim it's an ancient relic. Refuse to let anyone touch it."
+  },
+  {
+    "id": 33,
+    "game": "VRChat",
+    "text": "Walk slowly through the Star Destroyer whispering into your hand as if you’re being monitored. Act increasingly paranoid."
+  },
+  {
+    "id": 34,
+    "game": "VRChat",
+    "text": "Enter the meditation room and proclaim that you've had a Force vision of impending doom. Try to rally others to act."
+  },
+  {
+    "id": 35,
+    "game": "VRChat",
+    "text": "Ask another player for directions to the Emperor’s throne room. Insist it’s nearby even if they say it isn’t."
+  },
+  {
+    "id": 36,
+    "game": "VRChat",
+    "text": "Walk up to a group and state that your memory was wiped by Order 66. Ask them to help piece it together."
+  },
+  {
+    "id": 37,
+    "game": "VRChat",
+    "text": "Pretend to be a traveling merchant trying to sell \"black market kyber crystals.\" Describe them in detail."
+  },
+  {
+    "id": 38,
+    "game": "VRChat",
+    "text": "Stand in the corner of a hangar and recite the Jedi Code out loud until someone confronts you."
+  },
+  {
+    "id": 39,
+    "game": "VRChat",
+    "text": "Whisper a fake password to another player and tell them they’ve been selected for a secret mission."
+  },
+  {
+    "id": 40,
+    "game": "VRChat",
+    "text": "Walk into a group, slam your hand on a table, and shout “WHO STOLE MY BLASTER?” Continue dramatically until someone admits it."
+  },
+  {
+    "id": 41,
+    "game": "VRChat",
+    "text": "Claim you’ve just returned from the Battle of Geonosis. Tell exaggerated stories about what you saw."
+  },
+  {
+    "id": 42,
+    "game": "VRChat",
+    "text": "Offer to escort another player through the ship claiming there’s a bounty on them. Refuse to explain who wants them."
+  },
+  {
+    "id": 43,
+    "game": "VRChat",
+    "text": "Stand by a window and pretend to communicate telepathically with someone far away. React emotionally."
+  },
+  {
+    "id": 44,
+    "game": "VRChat",
+    "text": "Pretend to be possessed by a Sith spirit. Speak in riddles and challenge others to resist your influence."
+  },
+  {
+    "id": 45,
+    "game": "VRChat",
+    "text": "Sit alone in the mess hall and loudly complain about the food as if it’s beneath your rank."
+  },
+  {
+    "id": 46,
+    "game": "VRChat",
+    "text": "Start a spontaneous recruitment drive for a fake faction. Give players weird tasks to prove their loyalty."
+  },
+  {
+    "id": 47,
+    "game": "VRChat",
+    "text": "Draw a map on a piece of paper (real or pretend) and insist it leads to the lost Temple of Light. Try to sell it."
+  },
+  {
+    "id": 48,
+    "game": "VRChat",
+    "text": "Search the Star Destroyer for a “Force anomaly.” Make it sound increasingly urgent until someone helps."
+  },
+  {
+    "id": 49,
+    "game": "VRChat",
+    "text": "Convince someone you are the Emperor’s secret heir. Act offended if they doubt you."
+  },
+  {
+    "id": 50,
+    "game": "VRChat",
+    "text": "Follow a random player silently for 5 minutes while humming Imperial March. Don’t break character if confronted."
+  },
+  {
+    "id": 51,
+    "game": "VRChat",
+    "text": "Head to the Tatooine desert and claim you're stranded after your ship was stolen. Try to hitch a ride."
+  },
+  {
+    "id": 52,
+    "game": "VRChat",
+    "text": "In the Mos Eisley Cantina, pretend you're an undercover Jedi hiding from the Empire. Speak in code and watch your back."
+  },
+  {
+    "id": 53,
+    "game": "VRChat",
+    "text": "Visit Mustafar and meditate near the lava flows. Describe a vision you receive to someone nearby."
+  },
+  {
+    "id": 54,
+    "game": "VRChat",
+    "text": "Go to the Jedi Temple ruins and give a sermon on the Light Side. Whether anyone listens or not, don’t stop."
+  },
+  {
+    "id": 55,
+    "game": "VRChat",
+    "text": "Explore the forests of Endor and pretend you're searching for a lost Rebel base. Use voice chat like a radio."
+  },
+  {
+    "id": 56,
+    "game": "VRChat",
+    "text": "Pretend your lightsaber crystal has become unstable. Ask around the Jedi Temple for help re-tuning it."
+  },
+  {
+    "id": 57,
+    "game": "VRChat",
+    "text": "In the Tatooine marketplace, loudly accuse someone of being a spice smuggler. Cause a scene."
+  },
+  {
+    "id": 58,
+    "game": "VRChat",
+    "text": "Visit a Star Wars city world and play the role of a street performer using the Force to “do tricks.”"
+  },
+  {
+    "id": 59,
+    "game": "VRChat",
+    "text": "Sneak into the Sith Temple and act like you’re a new acolyte. Ask absurdly aggressive questions."
+  },
+  {
+    "id": 60,
+    "game": "VRChat",
+    "text": "Go to Dagobah and act like you’re being trained by a mysterious master no one else can see. Refer to him constantly."
+  },
+  {
+    "id": 61,
+    "game": "VRChat",
+    "text": "In the snowy mountains of Hoth, act like you’re being hunted. Create suspense and whisper updates into your headset."
+  },
+  {
+    "id": 62,
+    "game": "VRChat",
+    "text": "Visit a world with a crashed ship and pretend you’re the only survivor. Ask others for extraction."
+  },
+  {
+    "id": 63,
+    "game": "VRChat",
+    "text": "Go to a large city planet and try to find someone willing to “buy” a fake bounty puck from you. Make the name and crime up."
+  },
+  {
+    "id": 64,
+    "game": "VRChat",
+    "text": "Sit at a booth in the cantina and offer free “Jedi wisdom” to strangers. Insist you’re a certified master."
+  },
+  {
+    "id": 65,
+    "game": "VRChat",
+    "text": "Go to a lava or volcanic world and act like you’re completing a Sith trial. Narrate it as if a Sith Lord is watching you."
+  },
+  {
+    "id": 66,
+    "game": "VRChat",
+    "text": "Pretend you’re a Rebel pilot who crashed during a scouting run. Create a fake callsign and mission report."
+  },
+  {
+    "id": 67,
+    "game": "VRChat",
+    "text": "In the cantina, try to find a pilot for a dangerous cargo run. Offer ridiculous pay and fake coordinates."
+  },
+  {
+    "id": 68,
+    "game": "VRChat",
+    "text": "Go to a Jedi archive world and pretend you're looking for a missing holocron. Ask others if they’ve seen it."
+  },
+  {
+    "id": 69,
+    "game": "VRChat",
+    "text": "Approach someone and claim the bounty on their head has expired — but you still want payment. Insist it’s a moral matter."
+  },
+  {
+    "id": 70,
+    "game": "VRChat",
+    "text": "In a desert world, bury something small and claim it's your lightsaber. Refuse to unbury it for anyone."
+  },
+  {
+    "id": 71,
+    "game": "VRChat",
+    "text": "Travel to a moon world and pretend it’s haunted by the Force ghosts of fallen Jedi. React as if hearing voices."
+  },
+  {
+    "id": 72,
+    "game": "VRChat",
+    "text": "Sit beside someone in a cantina and dramatically offer them a contract that will “change their destiny.” Don’t explain."
+  },
+  {
+    "id": 73,
+    "game": "VRChat",
+    "text": "Visit a Sith crypt or tomb and pretend to perform a forbidden ritual. Chant and react as if the ritual is working."
+  },
+  {
+    "id": 74,
+    "game": "VRChat",
+    "text": "Dress as a civilian and approach stormtroopers asking for “protection from Jedi terrorists.” Insist you’re loyal to the Empire."
+  },
+  {
+    "id": 75,
+    "game": "VRChat",
+    "text": "Go to a podracing track world and act like you're a famous racer. Brag about made-up victories and wait for challengers."
+  },
+  {
+    "id": 76,
+    "game": "VRChat",
+    "text": "Climb the tallest tree you can find on Dagobah and meditate at the top. Speak aloud as if you’re hearing whispers in the Force."
+  },
+  {
+    "id": 77,
+    "game": "VRChat",
+    "text": "Explore an old Jedi temple and narrate out loud what you see, as if you're a historian recording a holocron log."
+  },
+  {
+    "id": 78,
+    "game": "VRChat",
+    "text": "Visit Ilum and search for your kyber crystal. When you find a spot that “feels right,” kneel and perform a quiet ritual."
+  },
+  {
+    "id": 79,
+    "game": "VRChat",
+    "text": "Enter a corrupted Jedi temple and roleplay resisting the Dark Side’s influence. Show struggle in your voice and movements."
+  },
+  {
+    "id": 80,
+    "game": "VRChat",
+    "text": "In a peaceful Jedi meditation world, attempt to guide another player through a Force vision based on their past."
+  },
+  {
+    "id": 81,
+    "game": "VRChat",
+    "text": "Build a makeshift lightsaber hilt using anything you can find in the environment and “charge” it by holding it in the sun."
+  },
+  {
+    "id": 82,
+    "game": "VRChat",
+    "text": "Act as a wandering Jedi hermit who’s forgotten most of their training. Ask others to help you remember."
+  },
+  {
+    "id": 83,
+    "game": "VRChat",
+    "text": "Visit a Force nexus and “commune” with a long-dead Jedi Master. Speak both parts of the conversation aloud."
+  },
+  {
+    "id": 84,
+    "game": "VRChat",
+    "text": "Walk barefoot through a swamp world and claim you’re on a purification trial. Speak about the lessons you’re learning."
+  },
+  {
+    "id": 85,
+    "game": "VRChat",
+    "text": "Visit an overgrown Jedi ruin and try to decipher ancient writing etched into the walls. Make up translations."
+  },
+  {
+    "id": 86,
+    "game": "VRChat",
+    "text": "Sit quietly in front of a Jedi statue and begin recalling a memory from your character’s childhood training. Share it with others."
+  },
+  {
+    "id": 87,
+    "game": "VRChat",
+    "text": "Act like your kyber crystal has “rejected” you. Carry it openly and ask other Jedi for guidance on realigning yourself."
+  },
+  {
+    "id": 88,
+    "game": "VRChat",
+    "text": "Pretend you're hunting for a lost Padawan who vanished on Dagobah. Interview others in character and leave “tracking marks.”"
+  },
+  {
+    "id": 89,
+    "game": "VRChat",
+    "text": "Challenge another Jedi to a duel of wisdom. Take turns asking philosophical questions until one gives up."
+  },
+  {
+    "id": 90,
+    "game": "VRChat",
+    "text": "Sneak into a Sith world and try to “cleanse” the dark energy from a specific location by meditating there."
+  },
+  {
+    "id": 91,
+    "game": "VRChat",
+    "text": "Host an impromptu Jedi class in the ruins. Choose a lesson topic and see if anyone will attend."
+  },
+  {
+    "id": 92,
+    "game": "VRChat",
+    "text": "Visit a high cliff or mountain and toss a physical item down as a symbolic release. Say what you’re letting go of."
+  },
+  {
+    "id": 93,
+    "game": "VRChat",
+    "text": "Go to a Jedi library and act as if you’re repairing old datapads. Speak to them as if they are malfunctioning droids."
+  },
+  {
+    "id": 94,
+    "game": "VRChat",
+    "text": "Pretend to receive a message from the Jedi Council while in a quiet world. React with concern and begin preparing for a mission."
+  },
+  {
+    "id": 95,
+    "game": "VRChat",
+    "text": "Build a fake training course in any world using your imagination and complete it while narrating your progress."
+  },
+  {
+    "id": 96,
+    "game": "VRChat",
+    "text": "Offer to train someone as your Padawan. Lead them through a short, silly series of tests. Reward them with a made-up title."
+  },
+  {
+    "id": 97,
+    "game": "VRChat",
+    "text": "Sit in a cave and claim it’s where your old master fell. Tell the story as if it happened years ago."
+  },
+  {
+    "id": 98,
+    "game": "VRChat",
+    "text": "Visit a snowy world and practice “lightsaber forms” with your avatar’s hand motions or props. Name each form as you do it."
+  },
+  {
+    "id": 99,
+    "game": "VRChat",
+    "text": "Stand on a beach or cliff at sunset and deliver a Jedi farewell speech, as if saying goodbye to the old ways."
+  },
+  {
+    "id": 100,
+    "game": "VRChat",
+    "text": "Explore a cave network and pretend you’re being hunted by a Sith spirit. Whisper updates as you flee or hide."
+  },
+  {
+    "id": 101,
+    "game": "VRChat",
+    "text": "Begin on Tatooine and recruit a group to help you “steal a freighter” and fly to the Death Star. (Use a Tatooine world, then switch to any Death Star interior map and complete your mission.)"
+  },
+  {
+    "id": 102,
+    "game": "VRChat",
+    "text": "Smuggle a crate of kyber crystals off of Ilum. (Pretend to find a hidden stash, then travel to a world like Coruscant or Tatooine and claim delivery is complete.)"
+  },
+  {
+    "id": 103,
+    "game": "VRChat",
+    "text": "Find a quiet hangar and pretend you're performing emergency repairs to your stolen ship. Ask for tools from passersby."
+  },
+  {
+    "id": 104,
+    "game": "VRChat",
+    "text": "Form a crew of at least 2 others in-character, then take them on a “job run” through three different worlds."
+  },
+  {
+    "id": 105,
+    "game": "VRChat",
+    "text": "Visit a cantina and offer a mysterious briefcase to the highest bidder. Make up what’s inside and refuse to show it."
+  },
+  {
+    "id": 106,
+    "game": "VRChat",
+    "text": "Escape an Imperial-controlled world by sneaking into a shuttle bay and pretending you stowed away. Narrate it like a heist."
+  },
+  {
+    "id": 107,
+    "game": "VRChat",
+    "text": "Go to the underworld district of a city map and try to find someone who can “fence” your illegal cargo."
+  },
+  {
+    "id": 108,
+    "game": "VRChat",
+    "text": "Pretend you've got heat on you from Jabba's men. Whisper about bounties and act nervously around anyone in armor."
+  },
+  {
+    "id": 109,
+    "game": "VRChat",
+    "text": "Recruit a team to help you deliver stolen Death Star plans. (Visit a hangar map, a mid-space world, then a Rebel base or Yavin.)"
+  },
+  {
+    "id": 110,
+    "game": "VRChat",
+    "text": "In a snowy world, claim your ship crash-landed and your cargo of stolen weapons must be kept warm. Act desperately."
+  },
+  {
+    "id": 111,
+    "game": "VRChat",
+    "text": "Make a delivery run from a spice mine to a cantina. (RP gathering the spice on Kessel or a desert world, then \"deliver\" it by reaching any cantina and celebrating.)"
+  },
+  {
+    "id": 112,
+    "game": "VRChat",
+    "text": "Offer to smuggle a Jedi off a Sith world. Convince them to trust you and “hide” them until you’re in hyperspace."
+  },
+  {
+    "id": 113,
+    "game": "VRChat",
+    "text": "Stand on a ship and yell coordinates to an invisible droid crew as if piloting through a dangerous asteroid field."
+  },
+  {
+    "id": 114,
+    "game": "VRChat",
+    "text": "Lose a fake shipment on Endor. Then wander and ask Ewoks (or others) if they’ve seen your “crate of thermal detonators.”"
+  },
+  {
+    "id": 115,
+    "game": "VRChat",
+    "text": "Get caught between two rival groups. Pretend you owe both credits and try to play them against each other."
+  },
+  {
+    "id": 116,
+    "game": "VRChat",
+    "text": "Deliver “forged Imperial credentials” to someone waiting in a city plaza. Refuse to give details in case of spies."
+  },
+  {
+    "id": 117,
+    "game": "VRChat",
+    "text": "Carry a datapad and pretend it’s rigged to explode unless you reach a Jedi Temple within 5 minutes. Run through worlds."
+  },
+  {
+    "id": 118,
+    "game": "VRChat",
+    "text": "Host a meeting in a cantina with a group of hired mercs. Offer them jobs that get more absurd the longer they stay."
+  },
+  {
+    "id": 119,
+    "game": "VRChat",
+    "text": "Smuggle a creature in a backpack. (RP talking to it and keeping it calm during your escape. Complete when you reach a safe planet.)"
+  },
+  {
+    "id": 120,
+    "game": "VRChat",
+    "text": "Pose as a spice dealer looking for a partner. Pitch a totally made-up but serious-sounding drug to interested players."
+  },
+  {
+    "id": 121,
+    "game": "VRChat",
+    "text": "Infiltrate a Sith stronghold and steal a “Dark Side relic.” (RP it by sneaking, whispering updates, then flee to a Jedi world.)"
+  },
+  {
+    "id": 122,
+    "game": "VRChat",
+    "text": "Start a rumor in a busy area that there's a bounty on a random player's head. Watch how others react."
+  },
+  {
+    "id": 123,
+    "game": "VRChat",
+    "text": "Pretend you were double-crossed after a smuggling job. Find someone to vent to and try to rally support for revenge."
+  },
+  {
+    "id": 124,
+    "game": "VRChat",
+    "text": "Go to a cantina and tell the story of how you made the Kessel Run in fewer parsecs than anyone else. Exaggerate constantly."
+  },
+  {
+    "id": 125,
+    "game": "VRChat",
+    "text": "Lead a “diplomatic mission” across three worlds. Never explain who you represent, just act highly important the whole time."
+  },
+  {
+    "id": 126,
+    "game": "VRChat",
+    "text": "In a spaceport, claim your co-pilot is missing. Describe them with wildly inaccurate details and ask strangers if they’ve seen them."
+  },
+  {
+    "id": 127,
+    "game": "VRChat",
+    "text": "Attempt to barter your ship for a new identity. Approach armored players and act like you're desperate to disappear."
+  },
+  {
+    "id": 128,
+    "game": "Contractors",
+    "text": "Eliminate 15 droids on Geonosis using a DC-15 blaster. Stay mobile and don’t reload more than 3 times."
+  },
+  {
+    "id": 129,
+    "game": "Contractors",
+    "text": "Escort a VIP clone officer across a war-torn bridge. You must be the last player standing to succeed."
+  },
+  {
+    "id": 130,
+    "game": "Contractors",
+    "text": "Get a 5-kill streak on Kamino. Once achieved, activate your Jedi class and finish the round with a lightsaber."
+  },
+  {
+    "id": 131,
+    "game": "Contractors",
+    "text": "Infiltrate a Separatist supply base. Use only suppressed blasters and melee for the first half."
+  },
+  {
+    "id": 132,
+    "game": "Contractors",
+    "text": "Defend a crashed Republic gunship from three waves of enemies. You cannot move more than 10 meters from the crash site."
+  },
+  {
+    "id": 133,
+    "game": "Contractors",
+    "text": "Use dual pistols to clear out a Cantina ambush on Tatooine. You must win without taking more than 30% damage."
+  },
+  {
+    "id": 134,
+    "game": "Contractors",
+    "text": "Trigger Order 66 in multiplayer — score 3 kills on Jedi players using blasters only."
+  },
+  {
+    "id": 135,
+    "game": "Contractors",
+    "text": "Reach a 10-kill streak as a clone trooper. Upon Jedi unlock, immediately challenge the enemy Sith in a duel."
+  },
+  {
+    "id": 136,
+    "game": "Contractors",
+    "text": "Hijack an enemy AT-RT. Clear the field with heavy weapons before being eliminated."
+  },
+  {
+    "id": 137,
+    "game": "Contractors",
+    "text": "Defuse two thermal detonators planted on a Republic outpost. You must crouch the entire mission."
+  },
+  {
+    "id": 138,
+    "game": "Contractors",
+    "text": "Secure the Clone Wars comms tower on Umbara. Hold it for 2 minutes without dying."
+  },
+  {
+    "id": 139,
+    "game": "Contractors",
+    "text": "Eliminate 20 enemies using only burst-fire mode. Accuracy must remain above 60%."
+  },
+  {
+    "id": 140,
+    "game": "Contractors",
+    "text": "Earn MVP in a match while playing as a clone trooper. At least 10 kills must be headshots."
+  },
+  {
+    "id": 141,
+    "game": "Contractors",
+    "text": "Unlock Jedi class and duel a Sith player without using Force powers. Only lightsaber strikes allowed."
+  },
+  {
+    "id": 142,
+    "game": "Contractors",
+    "text": "Plant a bomb in the enemy base and escape before detonation. No respawns allowed."
+  },
+  {
+    "id": 143,
+    "game": "Contractors",
+    "text": "Win a round on Kashyyyk without using scopes. Hipfire only."
+  },
+  {
+    "id": 144,
+    "game": "Contractors",
+    "text": "Score 8 kills in under 60 seconds using a blaster rifle. Bonus: survive the next minute."
+  },
+  {
+    "id": 145,
+    "game": "Contractors",
+    "text": "Kill 3 enemies midair during jetpack movement. Must be within a single life."
+  },
+  {
+    "id": 146,
+    "game": "Contractors",
+    "text": "Use a thermal detonator to score a double kill on Coruscant streets. Must be thrown while sliding."
+  },
+  {
+    "id": 147,
+    "game": "Contractors",
+    "text": "Equip a sniper rifle and eliminate 5 enemies from over 75 meters. Only 1 shot per target allowed."
+  },
+  {
+    "id": 148,
+    "game": "Contractors",
+    "text": "Kill a Jedi-class enemy using only a blaster. No grenades or melee allowed."
+  },
+  {
+    "id": 149,
+    "game": "Contractors",
+    "text": "Earn a 6-kill streak in a close-quarters map. Unlock Sith class and finish the match with 3 saber kills."
+  },
+  {
+    "id": 150,
+    "game": "Contractors",
+    "text": "Win a round using only pistols and melee. Bonus: No deaths."
+  },
+  {
+    "id": 151,
+    "game": "Contractors",
+    "text": "Disable a Republic radar tower (objective map) and defend it for 90 seconds."
+  },
+  {
+    "id": 152,
+    "game": "Contractors",
+    "text": "Sneak behind enemy lines and get 3 stealth melee kills in one life."
+  },
+  {
+    "id": 153,
+    "game": "Contractors",
+    "text": "Score 15 kills while crouching. You may not stand up for the entire round."
+  },
+  {
+    "id": 154,
+    "game": "Contractors",
+    "text": "Eliminate a Sith-class player using only explosives. No weapons."
+  },
+  {
+    "id": 155,
+    "game": "Contractors",
+    "text": "Survive a full round on Geonosis with no deaths and at least 10 confirmed kills."
+  },
+  {
+    "id": 156,
+    "game": "Contractors",
+    "text": "Complete an objective round with top score while using only clone cadet loadout (basic weapons only)."
+  },
+  {
+    "id": 157,
+    "game": "Contractors",
+    "text": "Eliminate 3 enemies using ricochet blaster shots. (Use wall bounce tactics to simulate.)"
+  },
+  {
+    "id": 158,
+    "game": "Contractors",
+    "text": "Unlock Jedi class and win the match without dying again."
+  },
+  {
+    "id": 159,
+    "game": "Contractors",
+    "text": "Defeat a player using a saberstaff while dual-wielding sabers. Finish with a backflip or jump-strike."
+  },
+  {
+    "id": 160,
+    "game": "Contractors",
+    "text": "Score 5 headshots on moving targets. All must be within 10 seconds of each other."
+  },
+  {
+    "id": 161,
+    "game": "Contractors",
+    "text": "Use every type of grenade in a single match and score at least one kill with each."
+  },
+  {
+    "id": 162,
+    "game": "Contractors",
+    "text": "Win a saber duel with no blocking. Only dodging and raw offense allowed."
+  },
+  {
+    "id": 163,
+    "game": "Contractors",
+    "text": "Score 3 kills while underwater or submerged (use map pools or cover water for realism)."
+  },
+  {
+    "id": 164,
+    "game": "Contractors",
+    "text": "Get 10 kills while using a clone medic loadout. You may not carry grenades."
+  },
+  {
+    "id": 165,
+    "game": "Contractors",
+    "text": "Perform a saber throw kill from over 20 meters. Retrieve the saber to complete."
+  },
+  {
+    "id": 166,
+    "game": "Contractors",
+    "text": "Win a match on Mustafar with only melee weapons. Must include at least 1 lightsaber kill."
+  },
+  {
+    "id": 167,
+    "game": "Contractors",
+    "text": "Get 15 kills on a night map without a flashlight. Rely on visuals and sound."
+  },
+  {
+    "id": 168,
+    "game": "Contractors",
+    "text": "Score 10 kills with the DC-15A in a single round. You may not use grenades."
+  },
+  {
+    "id": 169,
+    "game": "Contractors",
+    "text": "Reach a 7-kill streak as a clone trooper to unlock Jedi class. Use saber for final kill."
+  },
+  {
+    "id": 170,
+    "game": "Contractors",
+    "text": "Get 3 kills while airborne using clone jump jets on Kamino."
+  },
+  {
+    "id": 171,
+    "game": "Contractors",
+    "text": "Dominate the central control point on Geonosis. Hold for 90 seconds while maintaining a 2.0 K/D."
+  },
+  {
+    "id": 172,
+    "game": "Contractors",
+    "text": "Land 15 headshots using the standard clone rifle. Must be done in a single match."
+  },
+  {
+    "id": 173,
+    "game": "Contractors",
+    "text": "Use dual DC-17 pistols to eliminate 5 enemies at close range. Must be under 10 meters."
+  },
+  {
+    "id": 174,
+    "game": "Contractors",
+    "text": "Finish a match with at least 20 kills and 3 assists using clone gear."
+  },
+  {
+    "id": 175,
+    "game": "Contractors",
+    "text": "Get a kill with every weapon in your clone loadout during a single round."
+  },
+  {
+    "id": 176,
+    "game": "Contractors",
+    "text": "Achieve top placement on the scoreboard while only using clone trooper rifles."
+  },
+  {
+    "id": 177,
+    "game": "Contractors",
+    "text": "Earn a Jedi unlock and win the match using lightsaber-only kills after transformation."
+  },
+  {
+    "id": 178,
+    "game": "Contractors",
+    "text": "Score 8 kills in a row without reloading more than once."
+  },
+  {
+    "id": 179,
+    "game": "Contractors",
+    "text": "Eliminate 3 enemies guarding an objective and secure the point solo."
+  },
+  {
+    "id": 180,
+    "game": "Contractors",
+    "text": "Get 3 melee kills with the clone vibroblade. All must be backstabs."
+  },
+  {
+    "id": 181,
+    "game": "Contractors",
+    "text": "Duel another Jedi player in a 1v1 lightsaber fight and survive with 50%+ health."
+  },
+  {
+    "id": 182,
+    "game": "Contractors",
+    "text": "Eliminate 4 enemies defending a doorway on Kamino without dying."
+  },
+  {
+    "id": 183,
+    "game": "Contractors",
+    "text": "Complete an objective-based match with zero grenade usage. All kills must be via blaster."
+  },
+  {
+    "id": 184,
+    "game": "Contractors",
+    "text": "Get 3 kills in under 5 seconds using the clone shotgun."
+  },
+  {
+    "id": 185,
+    "game": "Contractors",
+    "text": "Reach a killstreak of 10 to unlock Sith class. Eliminate a Jedi with saber-to-saber combat."
+  },
+  {
+    "id": 186,
+    "game": "Contractors",
+    "text": "Get 10 kills on an elevated platform (e.g., Kamino walkways, Geonosis towers)."
+  },
+  {
+    "id": 187,
+    "game": "Contractors",
+    "text": "Lead your team in kills, assists, and score during a full 10-minute match."
+  },
+  {
+    "id": 188,
+    "game": "Contractors",
+    "text": "Use a clone blaster carbine to eliminate 12 enemies with no deaths."
+  },
+  {
+    "id": 189,
+    "game": "Contractors",
+    "text": "Win a match on Geonosis with 2 saber kills and 10 blaster kills in the same round."
+  },
+  {
+    "id": 190,
+    "game": "Contractors",
+    "text": "Eliminate a Jedi with a pistol. You must be below 30% health during the fight."
+  },
+  {
+    "id": 191,
+    "game": "Contractors",
+    "text": "Eliminate 3 enemies while capturing an objective without stepping off the zone."
+  },
+  {
+    "id": 192,
+    "game": "Contractors",
+    "text": "Start a round as a clone and end as a Jedi with 5 lightsaber kills."
+  },
+  {
+    "id": 193,
+    "game": "Contractors",
+    "text": "Get 5 kills on Kamino without missing a shot."
+  },
+  {
+    "id": 194,
+    "game": "Contractors",
+    "text": "Eliminate 10 enemies without leaving the mid-zone control area on Geonosis."
+  },
+  {
+    "id": 195,
+    "game": "Contractors",
+    "text": "Survive an entire round without dying and score at least 15 kills."
+  },
+  {
+    "id": 196,
+    "game": "Contractors",
+    "text": "Win a match with more saber kills than blaster kills. Jedi mode only."
+  },
+  {
+    "id": 197,
+    "game": "Contractors",
+    "text": "Eliminate the same player three times in one match. No sabers allowed."
+  },
+  {
+    "id": 198,
+    "game": "Contractors",
+    "text": "Get a 4-kill streak using the clone shotgun inside a base corridor."
+  },
+  {
+    "id": 199,
+    "game": "Contractors",
+    "text": "Eliminate a Sith-class player with a saber while using Jedi form. No blaster backup."
+  },
+  {
+    "id": 200,
+    "game": "Contractors",
+    "text": "Get 10 kills using iron sights only. No hipfire or scopes allowed."
+  },
+  {
+    "id": 201,
+    "game": "Contractors",
+    "text": "Win a match without throwing any grenades and no melee kills."
+  },
+  {
+    "id": 202,
+    "game": "Contractors",
+    "text": "Score a kill while jumping between platforms on Kamino."
+  },
+  {
+    "id": 203,
+    "game": "Contractors",
+    "text": "Get 5 back-to-back kills in a hallway choke point. Bonus: No grenades used."
+  },
+  {
+    "id": 204,
+    "game": "Contractors",
+    "text": "Land 3 saber kills without taking damage during Jedi mode."
+  },
+  {
+    "id": 205,
+    "game": "Contractors",
+    "text": "Finish a full match with an even 50/50 split between saber and blaster kills."
+  },
+  {
+    "id": 206,
+    "game": "Contractors",
+    "text": "Get 3 blaster headshots while crouching behind cover."
+  },
+  {
+    "id": 207,
+    "game": "Contractors",
+    "text": "Unlock Jedi or Sith class and duel another saber-user within 30 seconds."
+  },
+  {
+    "id": 208,
+    "game": "Contractors",
+    "text": "Win a match while using only the clone SMG."
+  },
+  {
+    "id": 209,
+    "game": "Contractors",
+    "text": "Achieve top score with a total of exactly 18 kills and 0 deaths."
+  },
+  {
+    "id": 210,
+    "game": "Contractors",
+    "text": "Play through an entire match only firing from the hip."
+  },
+  {
+    "id": 211,
+    "game": "Contractors",
+    "text": "Achieve 3 kills in under 10 seconds, then retreat and survive the rest of the match."
+  },
+  {
+    "id": 212,
+    "game": "Contractors",
+    "text": "Use the heavy repeater clone blaster to mow down 6 enemies in one match."
+  },
+  {
+    "id": 213,
+    "game": "Contractors",
+    "text": "Eliminate two enemies standing next to each other with a single blaster burst."
+  },
+  {
+    "id": 214,
+    "game": "Contractors",
+    "text": "Play as a Jedi and eliminate three enemies guarding a control point without retreating."
+  },
+  {
+    "id": 215,
+    "game": "Contractors",
+    "text": "Survive a full match with at least 12 kills while never sprinting."
+  },
+  {
+    "id": 216,
+    "game": "Contractors",
+    "text": "As a Sith, take down a Jedi with no blocks. Only parries and strikes allowed."
+  },
+  {
+    "id": 217,
+    "game": "Contractors",
+    "text": "Get 6 saber kills in a row after unlocking Sith mode — no deaths allowed."
+  },
+  {
+    "id": 218,
+    "game": "Contractors",
+    "text": "Eliminate an enemy from higher ground without using zoom."
+  },
+  {
+    "id": 219,
+    "game": "Contractors",
+    "text": "Get a saber kill within 10 seconds of unlocking Jedi class."
+  },
+  {
+    "id": 220,
+    "game": "Contractors",
+    "text": "Score a kill while reloading mid-combat. Timing is everything."
+  },
+  {
+    "id": 221,
+    "game": "Contractors",
+    "text": "Land 10 critical shots (head or torso) in a single round."
+  },
+  {
+    "id": 222,
+    "game": "Contractors",
+    "text": "Use only semi-auto weapons and no grenades to reach 10+ kills."
+  },
+  {
+    "id": 223,
+    "game": "Contractors",
+    "text": "Lead your squad in kills while using a non-scoped blaster carbine."
+  },
+  {
+    "id": 224,
+    "game": "Contractors",
+    "text": "Win a round with a final kill using lightsaber clash. Bonus: clash must parry."
+  },
+  {
+    "id": 225,
+    "game": "Contractors",
+    "text": "Secure and hold the center control zone for 3 minutes in total."
+  },
+  {
+    "id": 226,
+    "game": "Contractors",
+    "text": "Eliminate a player who just unlocked Jedi or Sith before they land their first saber kill."
+  },
+  {
+    "id": 227,
+    "game": "Contractors",
+    "text": "Complete a full match with over 70% accuracy. Use any blaster type."
+  },
+  {
+    "id": 228,
+    "game": "Contractors",
+    "text": "Reach Jedi form and score 5 lightsaber kills without blocking. Stay on the offensive."
+  },
+  {
+    "id": 229,
+    "game": "Contractors",
+    "text": "Eliminate 3 enemies in a single burst with the DC-15S. No scope or sights."
+  },
+  {
+    "id": 230,
+    "game": "Contractors",
+    "text": "Score the winning kill of a match using your lightsaber while low on health."
+  },
+  {
+    "id": 231,
+    "game": "Contractors",
+    "text": "Get 8 kills without ADS (aim down sights) during a full match."
+  },
+  {
+    "id": 232,
+    "game": "Contractors",
+    "text": "Begin a round as a Clone, unlock Sith, and land 2 saber kills in the final minute."
+  },
+  {
+    "id": 233,
+    "game": "Contractors",
+    "text": "Score 3 melee backstabs using the clone knife on Geonosis."
+  },
+  {
+    "id": 234,
+    "game": "Contractors",
+    "text": "Win a match without dying more than twice. Blasters only."
+  },
+  {
+    "id": 235,
+    "game": "Contractors",
+    "text": "Score 10 kills inside indoor sections of Kamino only."
+  },
+  {
+    "id": 236,
+    "game": "Contractors",
+    "text": "Land a saber kill while surrounded by 2 or more enemies."
+  },
+  {
+    "id": 237,
+    "game": "Contractors",
+    "text": "Score a double kill using a single blaster mag — no reload."
+  },
+  {
+    "id": 238,
+    "game": "Contractors",
+    "text": "Reach Jedi unlock and win the match with only saber kills afterward."
+  },
+  {
+    "id": 239,
+    "game": "Contractors",
+    "text": "Maintain a K/D ratio above 3.0 across an entire match."
+  },
+  {
+    "id": 240,
+    "game": "Contractors",
+    "text": "Get 4 saber kills on a raised platform without falling or jumping off."
+  },
+  {
+    "id": 241,
+    "game": "Contractors",
+    "text": "Get a headshot on every enemy in your top 5 kill feed."
+  },
+  {
+    "id": 242,
+    "game": "Contractors",
+    "text": "Duel a Sith using Jedi form — only clash-based hits allowed."
+  },
+  {
+    "id": 243,
+    "game": "Contractors",
+    "text": "Reach 15 total kills without switching weapons once."
+  },
+  {
+    "id": 244,
+    "game": "Contractors",
+    "text": "Land the first kill of the match and end with the final kill. Bonus XP."
+  },
+  {
+    "id": 245,
+    "game": "Contractors",
+    "text": "Win a match using only secondary weapons. No primaries allowed."
+  },
+  {
+    "id": 246,
+    "game": "Contractors",
+    "text": "As a Jedi, block 5 attacks in a row, then eliminate your attacker."
+  },
+  {
+    "id": 247,
+    "game": "Contractors",
+    "text": "Finish a match with a kill/death ratio of exactly 2.0."
+  },
+  {
+    "id": 248,
+    "game": "Contractors",
+    "text": "Use the heavy clone repeater to eliminate 3 enemies in a 10-second window."
+  },
+  {
+    "id": 249,
+    "game": "Contractors",
+    "text": "Score 5 kills in a row with zero UI damage feedback. Play by instinct."
+  },
+  {
+    "id": 250,
+    "game": "Contractors",
+    "text": "Get a kill while your weapon is under 10% ammo remaining."
+  },
+  {
+    "id": 251,
+    "game": "Contractors",
+    "text": "Win a round without using voice or text chat to coordinate. Solo tactics only."
+  },
+  {
+    "id": 252,
+    "game": "Contractors",
+    "text": "Stay inside the central zone for 3 consecutive minutes and survive."
+  },
+  {
+    "id": 253,
+    "game": "Contractors",
+    "text": "Kill a saber-wielding enemy while they’re in mid-swing. Timing is everything."
+  },
+  {
+    "id": 254,
+    "game": "Contractors",
+    "text": "Use a blaster rifle to snipe an enemy across the full distance of the Geonosis map."
+  },
+  {
+    "id": 255,
+    "game": "Contractors",
+    "text": "Score 10 total kills while crouched."
+  },
+  {
+    "id": 256,
+    "game": "Contractors",
+    "text": "Perform a slide kill — sprint, slide, shoot. Only clone rifles allowed."
+  },
+  {
+    "id": 257,
+    "game": "Contractors",
+    "text": "Survive a 1v3 fight inside a confined hallway and win the round."
+  },
+  {
+    "id": 258,
+    "game": "Contractors",
+    "text": "After unlocking Sith, eliminate a Jedi using only forward strikes. No blocking."
+  },
+  {
+    "id": 259,
+    "game": "Contractors",
+    "text": "Top the leaderboard while never leaving the objective zone. Hold your ground."
+  },
+  {
+    "id": 260,
+    "game": "Contractors",
+    "text": "Land two saber kills from behind. No frontal engagements allowed."
+  },
+  {
+    "id": 261,
+    "game": "Contractors",
+    "text": "Reach a 12-kill streak on any map using clone loadout. Jedi unlock optional."
+  },
+  {
+    "id": 262,
+    "game": "Contractors",
+    "text": "Win a match as a Jedi or Sith without switching to blaster once. Full saber run."
+  },
+  {
+    "id": 263,
+    "game": "Blade and Sorcery",
+    "text": "Duel a Sith Champion using only one hand and no Force powers. Prove your control."
+  },
+  {
+    "id": 264,
+    "game": "Blade and Sorcery",
+    "text": "Fight through a Jedi Temple overrun by Dark Side cultists. Purge them one by one."
+  },
+  {
+    "id": 265,
+    "game": "Blade and Sorcery",
+    "text": "Use Force Push to throw 10 enemies off ledges in a canyon map. Cleanse the cliffs."
+  },
+  {
+    "id": 266,
+    "game": "Blade and Sorcery",
+    "text": "Enter an arena and defeat 3 waves using only a blue lightsaber and precision strikes."
+  },
+  {
+    "id": 267,
+    "game": "Blade and Sorcery",
+    "text": "Recreate Order 66 — face waves of Jedi survivors who know your betrayal."
+  },
+  {
+    "id": 268,
+    "game": "Blade and Sorcery",
+    "text": "Face a corrupted clone battalion. Deflect their blasters and break their helmets with melee strikes."
+  },
+  {
+    "id": 269,
+    "game": "Blade and Sorcery",
+    "text": "Duel Darth Maul on a narrow platform without falling. Do not break eye contact."
+  },
+  {
+    "id": 270,
+    "game": "Blade and Sorcery",
+    "text": "Find and ignite a fallen Jedi's lightsaber in a ruined temple. Use it to defeat their killer."
+  },
+  {
+    "id": 271,
+    "game": "Blade and Sorcery",
+    "text": "Use only the Force to defeat 5 enemies. No weapons. Choke, push, and pull your way to victory."
+  },
+  {
+    "id": 272,
+    "game": "Blade and Sorcery",
+    "text": "Activate a double-bladed saber and spin-kill at least 7 enemies in one dungeon run."
+  },
+  {
+    "id": 273,
+    "game": "Blade and Sorcery",
+    "text": "Face a squad of Mandalorians and disarm each one before delivering the final blow."
+  },
+  {
+    "id": 274,
+    "game": "Blade and Sorcery",
+    "text": "Enter a desert tomb and duel three Sith spirits. They can’t bleed — strike true."
+  },
+  {
+    "id": 275,
+    "game": "Blade and Sorcery",
+    "text": "Cut through an ambush using only stealth, backstabs, and lightsaber throws."
+  },
+  {
+    "id": 276,
+    "game": "Blade and Sorcery",
+    "text": "Deflect 50 blaster bolts in a single run without taking a hit."
+  },
+  {
+    "id": 277,
+    "game": "Blade and Sorcery",
+    "text": "Free a captured Padawan being guarded in a prison cell. Defeat all guards using only non-lethal attacks."
+  },
+  {
+    "id": 278,
+    "game": "Blade and Sorcery",
+    "text": "Use telekinesis to pull an enemy's saber mid-swing and reverse it back into them."
+  },
+  {
+    "id": 279,
+    "game": "Blade and Sorcery",
+    "text": "Hunt down a Dark Side assassin hiding in a temple map. Don’t leave until they’re dealt with."
+  },
+  {
+    "id": 280,
+    "game": "Blade and Sorcery",
+    "text": "Fight your way up the Death Star tower using only lightsaber throws. Retrieve the plans at the top."
+  },
+  {
+    "id": 281,
+    "game": "Blade and Sorcery",
+    "text": "Defeat 3 Sith Lords in a row — one with a red saber, one with lightning, and one with dual blades."
+  },
+  {
+    "id": 282,
+    "game": "Blade and Sorcery",
+    "text": "Play as a Grey Jedi and choose mid-fight whether to spare or strike down your final enemy. Speak your reason aloud."
+  },
+  {
+    "id": 283,
+    "game": "Blade and Sorcery",
+    "text": "Use mind tricks (roleplay or modded power) to confuse 3 enemies before defeating them."
+  },
+  {
+    "id": 284,
+    "game": "Blade and Sorcery",
+    "text": "Build a pile of lightsabers from fallen enemies. Make it your victory altar."
+  },
+  {
+    "id": 285,
+    "game": "Blade and Sorcery",
+    "text": "Slice through a Clone Wars battlefield with only one saber and full aggression. No healing allowed."
+  },
+  {
+    "id": 286,
+    "game": "Blade and Sorcery",
+    "text": "Fight blind. Cover your real eyes for 60 seconds and rely on audio cues to survive."
+  },
+  {
+    "id": 287,
+    "game": "Blade and Sorcery",
+    "text": "Duel yourself — spawn a Jedi enemy with your exact gear and fight your mirror match."
+  },
+  {
+    "id": 288,
+    "game": "Blade and Sorcery",
+    "text": "Use the Force to crush 10 droids in one dungeon run."
+  },
+  {
+    "id": 289,
+    "game": "Blade and Sorcery",
+    "text": "Set up a trap using Force powers or thrown sabers to eliminate a group without direct combat."
+  },
+  {
+    "id": 290,
+    "game": "Blade and Sorcery",
+    "text": "Let an enemy draw first. Only strike after parrying 3 attacks. Remain calm."
+  },
+  {
+    "id": 291,
+    "game": "Blade and Sorcery",
+    "text": "Fight through a rainstorm with a blue lightsaber. Make every hit cinematic."
+  },
+  {
+    "id": 292,
+    "game": "Blade and Sorcery",
+    "text": "Pretend your saber is unstable. Fight with hesitation and shake the hilt before each kill."
+  },
+  {
+    "id": 293,
+    "game": "Blade and Sorcery",
+    "text": "Challenge a saber-wielding boss to a one-on-one duel in the center of the map. No Force powers allowed."
+  },
+  {
+    "id": 294,
+    "game": "Blade and Sorcery",
+    "text": "Rescue a downed comrade by eliminating all nearby hostiles. Roleplay pulling them to safety."
+  },
+  {
+    "id": 295,
+    "game": "Blade and Sorcery",
+    "text": "Fight on Mustafar. Roleplay the emotional breakdown of turning against your master."
+  },
+  {
+    "id": 296,
+    "game": "Blade and Sorcery",
+    "text": "Behead a Sith Lord and throw their saber into lava. Walk away without looking back."
+  },
+  {
+    "id": 297,
+    "game": "Blade and Sorcery",
+    "text": "Only use saber hilts to fight. Punch, slam, and throw them — no blades."
+  },
+  {
+    "id": 298,
+    "game": "Blade and Sorcery",
+    "text": "Reclaim your stolen saber by grabbing it mid-air from an enemy. Then unleash fury."
+  },
+  {
+    "id": 299,
+    "game": "Blade and Sorcery",
+    "text": "Play as a Force ghost. Don’t speak. Only float, stare, and possess random items."
+  },
+  {
+    "id": 300,
+    "game": "Blade and Sorcery",
+    "text": "Get 10 kills while your health is under 25%. No healing until it's over."
+  },
+  {
+    "id": 301,
+    "game": "Blade and Sorcery",
+    "text": "Fight in a forest. Move silently and never stay in the same place twice."
+  },
+  {
+    "id": 302,
+    "game": "Blade and Sorcery",
+    "text": "Kill three enemies with environmental hazards (pits, spikes, collapses) and not your blade."
+  },
+  {
+    "id": 303,
+    "game": "Blade and Sorcery",
+    "text": "Channel raw rage: complete a wave with no blocking, only offense. Take hits. Don’t flinch."
+  },
+  {
+    "id": 304,
+    "game": "Blade and Sorcery",
+    "text": "Perform 3 “honor duels” — one-on-one, no powers, bow before and after each fight."
+  },
+  {
+    "id": 305,
+    "game": "Blade and Sorcery",
+    "text": "Train a Padawan — pretend an NPC is your student. Narrate your instructions and protect them."
+  },
+  {
+    "id": 306,
+    "game": "Blade and Sorcery",
+    "text": "Fight in pitch-black darkness using only saber glow. Adjust your brightness to match."
+  },
+  {
+    "id": 307,
+    "game": "Blade and Sorcery",
+    "text": "Eliminate 5 Sith while making a vow after each kill. Recite your Jedi Code or Sith Mantra."
+  },
+  {
+    "id": 308,
+    "game": "Blade and Sorcery",
+    "text": "Face Darth Sidious in a throne room duel. He has 3000 health. No Force powers, no beheadings."
+  },
+  {
+    "id": 309,
+    "game": "Blade and Sorcery",
+    "text": "Confront General Grievous. Disable all four arms before landing the final hit."
+  },
+  {
+    "id": 310,
+    "game": "Blade and Sorcery",
+    "text": "In a dark temple, fight a resurrected Darth Bane. He wields dual sabers and cannot be pushed."
+  },
+  {
+    "id": 311,
+    "game": "Blade and Sorcery",
+    "text": "Duel your Jedi Master in a test of honor. No Force powers. Strike only after parrying."
+  },
+  {
+    "id": 312,
+    "game": "Blade and Sorcery",
+    "text": "Fight through a Sith Academy and end with a showdown against the Headmaster wielding red lightning."
+  },
+  {
+    "id": 313,
+    "game": "Blade and Sorcery",
+    "text": "Recreate a final duel between Anakin and Obi-Wan on a lava platform. Fight as one. Time your moves to the original film."
+  },
+  {
+    "id": 314,
+    "game": "Blade and Sorcery",
+    "text": "Defeat an elite clone commando wielding a vibroblade and blaster. No slow-mo allowed."
+  },
+  {
+    "id": 315,
+    "game": "Blade and Sorcery",
+    "text": "Fight Count Dooku in a saber-only duel. Must disarm him to win. No killing blows."
+  },
+  {
+    "id": 316,
+    "game": "Blade and Sorcery",
+    "text": "Enter the Jedi Trials. Defeat three dark illusions — one of your past, one of your fear, and one of your failure."
+  },
+  {
+    "id": 317,
+    "game": "Blade and Sorcery",
+    "text": "Survive a bounty hunter ambush. You’re weaponless for the first minute — disarm one and turn the tide."
+  },
+  {
+    "id": 318,
+    "game": "Blade and Sorcery",
+    "text": "Face a corrupted Jedi Knight inside a ruined temple. He blocks every attack unless you strike after dodging."
+  },
+  {
+    "id": 319,
+    "game": "Blade and Sorcery",
+    "text": "Defeat Darth Malgus in the ruins of a crashed warship. No Force, no healing, only saber skill."
+  },
+  {
+    "id": 320,
+    "game": "Blade and Sorcery",
+    "text": "Infiltrate a Sith tomb and face three ancient guardians in sequence, each with their own saber style."
+  },
+  {
+    "id": 321,
+    "game": "Blade and Sorcery",
+    "text": "Duel a Jedi exile in the snow. Use no Force powers — only patience and perfect counters."
+  },
+  {
+    "id": 322,
+    "game": "Blade and Sorcery",
+    "text": "Defeat a Jedi wielding a yellow saber in complete silence. No music, no talking, just your breath."
+  },
+  {
+    "id": 323,
+    "game": "Blade and Sorcery",
+    "text": "Ambush a group of Sith meditating. Don’t let a single one escape or alert the others."
+  },
+  {
+    "id": 324,
+    "game": "Blade and Sorcery",
+    "text": "Fight Savage Opress with only a single saber and no Force grip. End him with a clean slash."
+  },
+  {
+    "id": 325,
+    "game": "Blade and Sorcery",
+    "text": "Duel a Mandalorian gladiator with a beskar spear. You cannot break their weapon — outmaneuver instead."
+  },
+  {
+    "id": 326,
+    "game": "Blade and Sorcery",
+    "text": "Enter a Sith vision where you must face yourself in full rage mode. Equip the same gear and fight without restraint."
+  },
+  {
+    "id": 327,
+    "game": "Blade and Sorcery",
+    "text": "Battle through a Sith fortress corridor lined with sentries. Reach the end without being hit once."
+  },
+  {
+    "id": 328,
+    "game": "Blade and Sorcery",
+    "text": "Throw your lightsaber into a duel arena and start the match unarmed. Retrieve it during combat without pausing."
+  },
+  {
+    "id": 329,
+    "game": "Blade and Sorcery",
+    "text": "Slay a Sith Inquisitor known for her lightning-fast teleporting attacks. Listen closely for her movement."
+  },
+  {
+    "id": 330,
+    "game": "Blade and Sorcery",
+    "text": "Fight on top of a crashing Republic cruiser (RP using a moving platform mod). Stay balanced."
+  },
+  {
+    "id": 331,
+    "game": "Blade and Sorcery",
+    "text": "Fight your way through a Jedi library overtaken by Sith. No saber throws allowed."
+  },
+  {
+    "id": 332,
+    "game": "Blade and Sorcery",
+    "text": "In a dark hall, activate only your saber's glow. Fight 6 droids relying solely on sound and light."
+  },
+  {
+    "id": 333,
+    "game": "Blade and Sorcery",
+    "text": "Face an old Jedi who refuses to fight you. Force him to draw his saber with your actions. Then win."
+  },
+  {
+    "id": 334,
+    "game": "Blade and Sorcery",
+    "text": "Defend an NPC ally (RP or modded) from waves of attackers while staying within 10 feet of them."
+  },
+  {
+    "id": 335,
+    "game": "Blade and Sorcery",
+    "text": "Confront the ghost of Darth Nihilus. You must survive without letting him touch you once."
+  },
+  {
+    "id": 336,
+    "game": "Blade and Sorcery",
+    "text": "Duel on Dagobah. Roleplay the swamp's difficulty. Limit visibility and swing slowly to match the environment."
+  },
+  {
+    "id": 337,
+    "game": "Blade and Sorcery",
+    "text": "Strike down an Imperial Commander with a vibroaxe — only after disarming two of his guards first."
+  },
+  {
+    "id": 338,
+    "game": "Blade and Sorcery",
+    "text": "Enter a Force Nexus. You must fight two Jedi and two Sith at once. Use all tools at your disposal."
+  },
+  {
+    "id": 339,
+    "game": "Blade and Sorcery",
+    "text": "Duel a young Padawan gone rogue. Let them speak before the fight. Try to spare them at the end."
+  },
+  {
+    "id": 340,
+    "game": "Blade and Sorcery",
+    "text": "Fight through a bounty hunter raid with only one health bar. No slow-mo or healing."
+  },
+  {
+    "id": 341,
+    "game": "Blade and Sorcery",
+    "text": "Break into a Sith cathedral and destroy the relic at its center. Roleplay the artifact's destruction."
+  },
+  {
+    "id": 342,
+    "game": "Blade and Sorcery",
+    "text": "Face a Jedi Master who only blocks. Learn his pattern and defeat him with timing and patience."
+  },
+  {
+    "id": 343,
+    "game": "Blade and Sorcery",
+    "text": "Fight alongside another Jedi (spawn friendly NPC). You cannot let them die before the final kill."
+  },
+  {
+    "id": 344,
+    "game": "Blade and Sorcery",
+    "text": "In a cold cave, fight a Sith using only a saberstaff. Don’t switch weapons during the fight."
+  },
+  {
+    "id": 345,
+    "game": "Blade and Sorcery",
+    "text": "Enter a Sith Colosseum and win 3 rounds of combat. No powers. You earn your saber back only at the end."
+  },
+  {
+    "id": 346,
+    "game": "Blade and Sorcery",
+    "text": "Duel a master of saber throw. Dodge every throw. Close the distance before they hit you."
+  },
+  {
+    "id": 347,
+    "game": "Blade and Sorcery",
+    "text": "Find a corrupted holocron and destroy it mid-fight while blocking incoming attacks."
+  },
+  {
+    "id": 348,
+    "game": "Blade and Sorcery",
+    "text": "Execute Order 66. Slay 5 Jedi NPCs who trusted you. Let each one speak before the fight begins."
+  },
+  {
+    "id": 349,
+    "game": "Blade and Sorcery",
+    "text": "Duel Darth Vader at full power (3500 health) while roleplaying as Darth Jar Jar with half health."
+  },
+  {
+    "id": 350,
+    "game": "Blade and Sorcery",
+    "text": "Meditate for 30 seconds, then fight your own shadow clone wearing identical gear. Win without healing."
+  },
+  {
+    "id": 351,
+    "game": "Blade and Sorcery",
+    "text": "Lead a squad of clones in a battle simulation. You may only attack after your squad strikes first."
+  },
+  {
+    "id": 352,
+    "game": "Blade and Sorcery",
+    "text": "Face off against Darth Revan. He wields two sabers and uses unpredictable combos. Beat him clean."
+  },
+  {
+    "id": 353,
+    "game": "Blade and Sorcery",
+    "text": "Slay 5 younglings in the Jedi Temple. React in character — cold, emotional, or regretful. Up to you."
+  },
+  {
+    "id": 354,
+    "game": "Blade and Sorcery",
+    "text": "Participate in a Sith blood ritual. Roleplay it using Force lightning and a sacrificed enemy. Then duel the survivor."
+  },
+  {
+    "id": 355,
+    "game": "Blade and Sorcery",
+    "text": "Fight a Jedi ghost who mimics your movements half a second behind. Use the delay to outmaneuver them."
+  },
+  {
+    "id": 356,
+    "game": "Blade and Sorcery",
+    "text": "Defeat a Hutt bodyguard armed with a vibroshield and heavy punches. You may not use sabers."
+  },
+  {
+    "id": 357,
+    "game": "Blade and Sorcery",
+    "text": "Storm the Death Star hangar and clear out 10 enemies without letting a single one escape."
+  },
+  {
+    "id": 358,
+    "game": "Blade and Sorcery",
+    "text": "Defend Grogu from bounty hunters. If he’s hit even once, you fail."
+  },
+  {
+    "id": 359,
+    "game": "Blade and Sorcery",
+    "text": "Duel your Jedi brother on Mustafar. The floor burns you slowly — stay moving."
+  },
+  {
+    "id": 360,
+    "game": "Blade and Sorcery",
+    "text": "Face off against Mace Windu. Only strike after being disarmed once. No powers allowed."
+  },
+  {
+    "id": 361,
+    "game": "Blade and Sorcery",
+    "text": "Reenact Order 65. Assassinate the Supreme Chancellor using stealth and distraction tactics."
+  },
+  {
+    "id": 362,
+    "game": "Blade and Sorcery",
+    "text": "Fight Darth Maul inside a hangar. You can only attack while dual wielding two short sabers."
+  },
+  {
+    "id": 363,
+    "game": "Blade and Sorcery",
+    "text": "Test your connection to the Force: fight with your eyes closed using only sound cues."
+  },
+  {
+    "id": 364,
+    "game": "Blade and Sorcery",
+    "text": "Duel a saberstaff-wielding Sith in zero gravity (simulate low gravity movement)."
+  },
+  {
+    "id": 365,
+    "game": "Blade and Sorcery",
+    "text": "Travel to a Jedi tomb and survive an ambush by Sith acolytes before escaping with the holocron."
+  },
+  {
+    "id": 366,
+    "game": "Blade and Sorcery",
+    "text": "Duel a clone of yourself who knows all your past moves. You must improvise every strike."
+  },
+  {
+    "id": 367,
+    "game": "Blade and Sorcery",
+    "text": "Protect a captured droid from being dismantled. Defend it until reinforcements arrive."
+  },
+  {
+    "id": 368,
+    "game": "Blade and Sorcery",
+    "text": "Take control of a Jedi Starfighter hangar by defeating a mechanic-turned-duelist with unorthodox weapons."
+  },
+  {
+    "id": 369,
+    "game": "Blade and Sorcery",
+    "text": "Complete a Sith proving ground: defeat 3 waves of saber-wielders in total silence."
+  },
+  {
+    "id": 370,
+    "game": "Blade and Sorcery",
+    "text": "Face off against an ancient Jedi spirit who fights with no sabers, only Force pushes and counters."
+  },
+  {
+    "id": 371,
+    "game": "Blade and Sorcery",
+    "text": "Engage in a 1v1 duel while riding a moving speeder (simulate via slow platform mod)."
+  },
+  {
+    "id": 372,
+    "game": "Blade and Sorcery",
+    "text": "Break free from a Sith mind trap. Defeat the same enemy three different ways."
+  },
+  {
+    "id": 373,
+    "game": "Blade and Sorcery",
+    "text": "Steal a kyber crystal from an Imperial lab. Escape without raising the alarm."
+  },
+  {
+    "id": 374,
+    "game": "Blade and Sorcery",
+    "text": "Use only Force powers to defeat 5 Sith assassins. No weapons allowed."
+  },
+  {
+    "id": 375,
+    "game": "Blade and Sorcery",
+    "text": "Defend a Jedi funeral from attackers. If any civilians fall, the mission fails."
+  },
+  {
+    "id": 376,
+    "game": "Blade and Sorcery",
+    "text": "Fight Darth Plagueis in an illusion. He cannot be stunned. Outlast his phases and land one final hit."
+  },
+  {
+    "id": 377,
+    "game": "Blade and Sorcery",
+    "text": "Enter a training simulator and defeat 20 droids without breaking your saber once."
+  },
+  {
+    "id": 378,
+    "game": "Blade and Sorcery",
+    "text": "Stop a Dark Side ritual by destroying 3 crystals mid-battle before the timer runs out."
+  },
+  {
+    "id": 379,
+    "game": "Blade and Sorcery",
+    "text": "Fight inside a reactor core. No jumping or falling allowed — balance and strike clean."
+  },
+  {
+    "id": 380,
+    "game": "Blade and Sorcery",
+    "text": "Duel your old Jedi master, now Sith. Let him talk first. Then strike him down reluctantly."
+  },
+  {
+    "id": 381,
+    "game": "Blade and Sorcery",
+    "text": "Repel waves of stormtroopers on Endor. Use only melee weapons crafted from the forest."
+  },
+  {
+    "id": 382,
+    "game": "Blade and Sorcery",
+    "text": "Survive 2 minutes against Darth Sidious using no saber — just movement and Force blocking."
+  },
+  {
+    "id": 383,
+    "game": "Blade and Sorcery",
+    "text": "Slice through a corridor of battle droids before they power up. Speed and timing are key."
+  },
+  {
+    "id": 384,
+    "game": "Blade and Sorcery",
+    "text": "Duel a Jedi Knight on Ilum. Only one saber crystal may remain. Don’t break it."
+  },
+  {
+    "id": 385,
+    "game": "Blade and Sorcery",
+    "text": "Act as a Sith instructor and spar a dozen acolytes. Don’t kill unless necessary."
+  },
+  {
+    "id": 386,
+    "game": "Blade and Sorcery",
+    "text": "Hunt a bounty across three different maps. Collect evidence from each kill to complete the quest."
+  },
+  {
+    "id": 387,
+    "game": "Blade and Sorcery",
+    "text": "Sneak into a Sith archive and swap a relic for a fake without triggering alarms."
+  },
+  {
+    "id": 388,
+    "game": "Blade and Sorcery",
+    "text": "Train a Padawan (spawn friendly NPC) by fighting side by side against 5 droids. You must land final blow."
+  },
+  {
+    "id": 389,
+    "game": "Blade and Sorcery",
+    "text": "Face a possessed Sith holocron. Survive its illusions while fending off shadow enemies."
+  },
+  {
+    "id": 390,
+    "game": "Blade and Sorcery",
+    "text": "Fight a lightsaber-wielding wampa (use mod or roleplay). Keep your distance and attack only after roars."
+  },
+  {
+    "id": 391,
+    "game": "Blade and Sorcery",
+    "text": "Infiltrate Jabba’s Palace and escape with a lightsaber hilt stored beneath the throne."
+  },
+  {
+    "id": 392,
+    "game": "Blade and Sorcery",
+    "text": "Battle 3 bounty hunters who work together. They will heal each other — prioritize targets."
+  },
+  {
+    "id": 393,
+    "game": "Blade and Sorcery",
+    "text": "Defeat a Jedi in an arena full of trap doors and spinning obstacles. Use the terrain."
+  },
+  {
+    "id": 394,
+    "game": "Blade and Sorcery",
+    "text": "Disarm a Sith by knocking their saber from their hand and catching it in midair."
+  },
+  {
+    "id": 395,
+    "game": "Blade and Sorcery",
+    "text": "Survive an airlock breach while being hunted by droids. Use environmental kills only."
+  },
+  {
+    "id": 396,
+    "game": "Blade and Sorcery",
+    "text": "Face Darth Jar Jar. He taunts you constantly. Dodge everything — he only goes down when you parry 3 times in a row."
+  },
+  {
+    "id": 397,
+    "game": "Blade and Sorcery",
+    "text": "Perform your Sith ascension. Defeat 10 enemies, then your own master. Kneel over their body to finish."
+  }
+];
+  
+function saveProgress() {
+  localStorage.setItem("savedXP", xp);
+  localStorage.setItem("savedLevel", level);
+  alert("Progress saved!");
+}
+
+window.onload = function() {
+  const savedXP = localStorage.getItem("savedXP");
+  const savedLevel = localStorage.getItem("savedLevel");
+  if (savedXP && savedLevel) {
+    xp = parseInt(savedXP);
+    level = parseInt(savedLevel);
+    document.getElementById("xpText").innerText = xp + " / " + (level * 100) + " XP";
+    document.getElementById("level").innerText = level;
+  updateCodenameDisplay();
+    document.getElementById("xpFill").style.width = (xp / (level * 100) * 100) + "%";
+  
+  }
+}
+
+
+let unlockedJediLore = [], unlockedSithLore = [], unlockedNeutralLore = [];
+let currentCodex = "jedi";
+let affinityScore = 50;
+
+const jediLore = [
+  "The Force binds all living things, and Jedi walk in harmony with its light.",
+  "Yoda once said: 'Train yourself to let go of everything you fear to lose.'",
+  "Ilum’s frozen caverns once echoed with the hum of kyber crystal resonance.",
+  "Jedi consulars believed diplomacy was the first weapon of peace.",
+  "Archives reveal a Jedi who saved Sith children to break the cycle of hate.",
+  "Legends say a Jedi Knight once healed an entire battalion with the Force.",
+  "Balance is not stillness — it is constant action guided by clarity.",
+  "Meditation chambers on Coruscant still resonate with peaceful energy.",
+  "The Jedi code is a vow, not a rule. Compassion gives it strength.",
+  "Jedi robes are worn plain to reflect humility, not to hide power."
+];
+const sithLore = [
+  "Power is purpose. The Sith embrace this truth — unflinching and unshackled.",
+  "Acolytes who pass the Korriban trials often lose more than they gain.",
+  "Sith Lords shape galaxies with fear, ambition, and relentless will.",
+  "Pain is a lesson. A scar is proof you survived.",
+  "Ancient Sith spirits still haunt the tombs of Moraband.",
+  "Anger grants strength, but clarity sharpens it into a blade.",
+  "A Sith holocron was once used to collapse an entire city in silence.",
+  "To dominate the Force is to dominate reality itself.",
+  "There is no honor in mercy. Only weakness disguised.",
+  "The Dark Side speaks in silence, in visions, and in screams."
+];
+const neutralLore = [
+  "The Force flows through all things — neither light nor dark.",
+  "Balance is forged in conflict and tested in choice.",
+  "A lone wanderer recorded the stars without choosing a side.",
+  "The Jedi and Sith alike fear what they cannot control.",
+  "A bounty hunter once meditated and claimed to hear the Force.",
+  "The galaxy’s fate turns on more than just lightsabers.",
+  "A hermit on Jedha described the Force as 'the great breath.'",
+  "There are truths lost in silence between philosophies.",
+  "Some believe love, not power, is the Force's true source.",
+  "In shadow and flame, even neutrality must make a stand."
+];
+
+function updateAffinityBar() {
+  const bar = document.getElementById("affinityBar");
+  const text = document.getElementById("affinityText");
+  let alignment = "Neutral";
+  if (affinityScore >= 67) alignment = "Light Side";
+  else if (affinityScore <= 33) alignment = "Dark Side";
+  text.innerText = alignment;
+  const percent = Math.max(0, Math.min(100, affinityScore));
+  bar.style.background = `linear-gradient(to right, red ${100 - percent}%, blue ${percent}%)`;
+}
+function adjustAffinity(type) {
+  if (type === "jedi") affinityScore = Math.min(100, affinityScore + 5);
+  else if (type === "sith") affinityScore = Math.max(0, affinityScore - 5);
+  updateAffinityBar();
+}
+function unlockLoreEntry(level) {
+  if (level <= 10 || level % 5 === 0) {
+    if (affinityScore >= 67) {
+      const i = unlockedJediLore.length;
+      if (i < jediLore.length) unlockedJediLore.push(jediLore[i]);
+    } else if (affinityScore <= 33) {
+      const i = unlockedSithLore.length;
+      if (i < sithLore.length) unlockedSithLore.push(sithLore[i]);
+    } else {
+      const i = unlockedNeutralLore.length;
+      if (i < neutralLore.length) unlockedNeutralLore.push(neutralLore[i]);
+    }
+    renderCodex();
+  }
+}
+function switchCodex(type) {
+  currentCodex = type;
+  renderCodex();
+}
+function renderCodex() {
+  const container = document.getElementById("codexEntries");
+  container.innerHTML = "";
+  const source = currentCodex === "jedi" ? unlockedJediLore :
+                 currentCodex === "sith" ? unlockedSithLore :
+                 unlockedNeutralLore;
+  source.forEach((entry, index) => {
+    const li = document.createElement("li");
+    li.textContent = `Entry ${index + 1}: ${entry}`;
+    li.style.marginBottom = "10px";
+    container.appendChild(li);
+  });
+}
+function toggleCodex() {
+  const panel = document.getElementById("codexPanel");
+  panel.style.display = panel.style.display === "none" ? "block" : "none";
+}
+function saveProgress() {
+  const data = {
+    xp, level, hunger, unlockedJediLore, unlockedSithLore, unlockedNeutralLore,
+    codename: document.getElementById("codenameDisplay").innerText,
+    affinityScore
+  };
+  localStorage.setItem("swvrSave", JSON.stringify(data));
+  alert("Progress saved.");
+}
+function loadProgress() {
+  const saved = localStorage.getItem("swvrSave");
+  if (saved) {
+    const data = JSON.parse(saved);
+    xp = data.xp || 0;
+    level = data.level || 1;
+    hunger = data.hunger || 100;
+    affinityScore = data.affinityScore || 50;
+    unlockedJediLore = data.unlockedJediLore || [];
+    unlockedSithLore = data.unlockedSithLore || [];
+    unlockedNeutralLore = data.unlockedNeutralLore || [];
+    document.getElementById("codenameDisplay").innerText = data.codename || "";
+    document.getElementById("xpText").innerText = xp + " / " + (level * 100) + " XP";
+    document.getElementById("level").innerText = level;
+  updateCodenameDisplay();
+    document.getElementById("xpFill").style.width = (xp / (level * 100) * 100) + "%";
+  
+    updateHungerBar();
+    updateAffinityBar();
+    renderCodex();
+  }
+}
+function resetProgress() {
+  if (confirm("Reset all progress?")) {
+    localStorage.removeItem("swvrSave");
+    
+  }
+}
+window.onload = loadProgress;
+
+
+  const planets = [
+    "Coruscant", "Tatooine", "Naboo", "Hoth", "Mustafar",
+    "Endor", "Kamino", "Dagobah", "Alderaan", "Geonosis"
+  ];
+
+  function getRandomPlanetTime() {
+    const planet = planets[Math.floor(Math.random() * planets.length)];
+    const cycle = Math.floor(3000 + Math.random() * 2000);
+    return `Cycle ${cycle} – ${planet} Standard Time`;
+  }
+
+  function updateGalacticTime() {
+    const questText = document.getElementById("questText")?.innerText.toLowerCase() || "";
+    const matchedPlanet = planets.find(p => questText.includes(p.toLowerCase()));
+    const selectedPlanet = matchedPlanet || planets[Math.floor(Math.random() * planets.length)];
+    const cycle = Math.floor(3000 + Math.random() * 2000);
+    document.getElementById("galacticTime").innerText = `Cycle ${cycle} – ${selectedPlanet} Standard Time`;
+  }
+
+  setInterval(updateGalacticTime, 10000); // update every 10 seconds
+  window.onload = () => {
+    updateBars();
+    updateGalacticTime();
+  };
+
+updateCodenameDisplay();
+</script>
+
+<audio id="levelUpSound">
+  <source src="level-up-sci-fi.mp3" type="audio/mpeg">
+</audio>
+<div id="levelUpPopup">LEVEL UP!</div>
+
+<script>
+  // Prompt for codename if not set
+  window.onload = function() {
+    let codename = localStorage.getItem("codename");
+    if (!codename) {
+      codename = prompt("Enter your Codename (e.g., Knight Vornis):");
+      if (codename) {
+        localStorage.setItem("codename", codename);
+      }
+    }
+    if (codename) {
+      document.getElementById("codenameDisplay").innerText = "Level " + level + " – " + codename;
+    }
+  };
+
+let unlockedJediLore = [], unlockedSithLore = [], unlockedNeutralLore = [];
+let currentCodex = "jedi";
+let affinityScore = 50;
+
+const jediLore = [
+  "The Force binds all living things, and Jedi walk in harmony with its light.",
+  "Yoda once said: 'Train yourself to let go of everything you fear to lose.'",
+  "Ilum’s frozen caverns once echoed with the hum of kyber crystal resonance.",
+  "Jedi consulars believed diplomacy was the first weapon of peace.",
+  "Archives reveal a Jedi who saved Sith children to break the cycle of hate.",
+  "Legends say a Jedi Knight once healed an entire battalion with the Force.",
+  "Balance is not stillness — it is constant action guided by clarity.",
+  "Meditation chambers on Coruscant still resonate with peaceful energy.",
+  "The Jedi code is a vow, not a rule. Compassion gives it strength.",
+  "Jedi robes are worn plain to reflect humility, not to hide power."
+];
+const sithLore = [
+  "Power is purpose. The Sith embrace this truth — unflinching and unshackled.",
+  "Acolytes who pass the Korriban trials often lose more than they gain.",
+  "Sith Lords shape galaxies with fear, ambition, and relentless will.",
+  "Pain is a lesson. A scar is proof you survived.",
+  "Ancient Sith spirits still haunt the tombs of Moraband.",
+  "Anger grants strength, but clarity sharpens it into a blade.",
+  "A Sith holocron was once used to collapse an entire city in silence.",
+  "To dominate the Force is to dominate reality itself.",
+  "There is no honor in mercy. Only weakness disguised.",
+  "The Dark Side speaks in silence, in visions, and in screams."
+];
+const neutralLore = [
+  "The Force flows through all things — neither light nor dark.",
+  "Balance is forged in conflict and tested in choice.",
+  "A lone wanderer recorded the stars without choosing a side.",
+  "The Jedi and Sith alike fear what they cannot control.",
+  "A bounty hunter once meditated and claimed to hear the Force.",
+  "The galaxy’s fate turns on more than just lightsabers.",
+  "A hermit on Jedha described the Force as 'the great breath.'",
+  "There are truths lost in silence between philosophies.",
+  "Some believe love, not power, is the Force's true source.",
+  "In shadow and flame, even neutrality must make a stand."
+];
+
+function updateAffinityBar() {
+  const bar = document.getElementById("affinityBar");
+  const text = document.getElementById("affinityText");
+  let alignment = "Neutral";
+  if (affinityScore >= 67) alignment = "Light Side";
+  else if (affinityScore <= 33) alignment = "Dark Side";
+  text.innerText = alignment;
+  const percent = Math.max(0, Math.min(100, affinityScore));
+  bar.style.background = `linear-gradient(to right, red ${100 - percent}%, blue ${percent}%)`;
+}
+function adjustAffinity(type) {
+  if (type === "jedi") affinityScore = Math.min(100, affinityScore + 5);
+  else if (type === "sith") affinityScore = Math.max(0, affinityScore - 5);
+  updateAffinityBar();
+}
+function unlockLoreEntry(level) {
+  if (level <= 10 || level % 5 === 0) {
+    if (affinityScore >= 67) {
+      const i = unlockedJediLore.length;
+      if (i < jediLore.length) unlockedJediLore.push(jediLore[i]);
+    } else if (affinityScore <= 33) {
+      const i = unlockedSithLore.length;
+      if (i < sithLore.length) unlockedSithLore.push(sithLore[i]);
+    } else {
+      const i = unlockedNeutralLore.length;
+      if (i < neutralLore.length) unlockedNeutralLore.push(neutralLore[i]);
+    }
+    renderCodex();
+  }
+}
+function switchCodex(type) {
+  currentCodex = type;
+  renderCodex();
+}
+function renderCodex() {
+  const container = document.getElementById("codexEntries");
+  container.innerHTML = "";
+  const source = currentCodex === "jedi" ? unlockedJediLore :
+                 currentCodex === "sith" ? unlockedSithLore :
+                 unlockedNeutralLore;
+  source.forEach((entry, index) => {
+    const li = document.createElement("li");
+    li.textContent = `Entry ${index + 1}: ${entry}`;
+    li.style.marginBottom = "10px";
+    container.appendChild(li);
+  });
+}
+function toggleCodex() {
+  const panel = document.getElementById("codexPanel");
+  panel.style.display = panel.style.display === "none" ? "block" : "none";
+}
+function saveProgress() {
+  const data = {
+    xp, level, hunger, unlockedJediLore, unlockedSithLore, unlockedNeutralLore,
+    codename: document.getElementById("codenameDisplay").innerText,
+    affinityScore
+  };
+  localStorage.setItem("swvrSave", JSON.stringify(data));
+  alert("Progress saved.");
+}
+function loadProgress() {
+  const saved = localStorage.getItem("swvrSave");
+  if (saved) {
+    const data = JSON.parse(saved);
+    xp = data.xp || 0;
+    level = data.level || 1;
+    hunger = data.hunger || 100;
+    affinityScore = data.affinityScore || 50;
+    unlockedJediLore = data.unlockedJediLore || [];
+    unlockedSithLore = data.unlockedSithLore || [];
+    unlockedNeutralLore = data.unlockedNeutralLore || [];
+    document.getElementById("codenameDisplay").innerText = data.codename || "";
+    document.getElementById("xpText").innerText = xp + " / " + (level * 100) + " XP";
+    document.getElementById("level").innerText = level;
+  updateCodenameDisplay();
+    document.getElementById("xpFill").style.width = (xp / (level * 100) * 100) + "%";
+  
+    updateHungerBar();
+    updateAffinityBar();
+    renderCodex();
+  }
+}
+function resetProgress() {
+  if (confirm("Reset all progress?")) {
+    localStorage.removeItem("swvrSave");
+    
+  }
+}
+window.onload = loadProgress;
+
+
+  const planets = [
+    "Coruscant", "Tatooine", "Naboo", "Hoth", "Mustafar",
+    "Endor", "Kamino", "Dagobah", "Alderaan", "Geonosis"
+  ];
+
+  function getRandomPlanetTime() {
+    const planet = planets[Math.floor(Math.random() * planets.length)];
+    const cycle = Math.floor(3000 + Math.random() * 2000);
+    return `Cycle ${cycle} – ${planet} Standard Time`;
+  }
+
+  function updateGalacticTime() {
+    const questText = document.getElementById("questText")?.innerText.toLowerCase() || "";
+    const matchedPlanet = planets.find(p => questText.includes(p.toLowerCase()));
+    const selectedPlanet = matchedPlanet || planets[Math.floor(Math.random() * planets.length)];
+    const cycle = Math.floor(3000 + Math.random() * 2000);
+    document.getElementById("galacticTime").innerText = `Cycle ${cycle} – ${selectedPlanet} Standard Time`;
+  }
+
+  setInterval(updateGalacticTime, 10000); // update every 10 seconds
+  window.onload = () => {
+    updateBars();
+    updateGalacticTime();
+  };
+
+updateCodenameDisplay();
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script>
+  let affinity = 0;
+
+  function updateAffinityBar() {
+    const bar = document.getElementById("affinityBar");
+    const label = document.getElementById("affinityText");
+    if (affinity > 30) {
+      label.innerText = "Jedi";
+    } else if (affinity < -30) {
+      label.innerText = "Sith";
+    } else {
+      label.innerText = "Neutral";
+    }
+    const sithPercent = Math.max(0, (100 - (affinity + 100) / 2));
+    const jediPercent = 100 - sithPercent;
+    bar.style.background = `linear-gradient(to right, red, purple, blue)`;
+  }
+
+  const originalCompleteQuest = completeQuest;
+  completeQuest = function() {
+    const quest = document.getElementById("questText").innerText.toLowerCase();
+
+    const jediPhrases = [
+      "rescue", "protect", "cleanse", "commune", "meditate", "jedi temple",
+      "seek wisdom", "peaceful meditation", "light side", "banish the darkness",
+      "save", "recover", "guide someone", "defend the weak", "force vision",
+      "prove your control", "no force powers", "one hand", "discipline", "restraint",
+      "honor duel", "off-hand only", "one strike per enemy", "stand your ground",
+      "deflect without getting hit", "without using force", "precision only", "jedi form"
+    ];
+
+    const sithPhrases = [
+      "sith instructor", "sith master", "train sith", "teach the dark side", "spar acolytes",
+      "blood ritual", "sacrifice", "force lightning", "ritual circle",
+      "dark incantation", "sith spell", "channel the darkness", "unholy", "sith chant",
+      "blood ritual", "sacrifice", "force lightning", "ritual circle",
+      "dark incantation", "sith spell", "channel the darkness","unholy", "sith chant",
+      "order 66", "force choke", "dark side", "vader", "maul", "execute",
+      "sith ritual", "sith trial", "sith academy", "sith temple", "dark ritual",
+      "act like a sith", "channel rage", "corrupted", "sith lord watching",
+      "feed on hate", "obey the dark side", "turn to the dark", "betray the jedi",
+      "hunt down jedi", "kill jedi", "destroy the temple"
+    ];
+
+    const jediCombatPairs = ["eliminate", "duel", "defeat"];
+    const jediMethodKeywords = ["jedi form", "discipline", "no blaster", "no force", "one hand", "restraint", "honor"];
+    const withJediPhrases = ["with", "alongside", "beside", "aid", "protect"];
+
+    const heroicInfiltration = (
+      quest.includes("sith") || quest.includes("dark side")
+    ) && (
+      quest.includes("steal") || quest.includes("recover") ||
+      quest.includes("sneak") || quest.includes("infiltrate")
+    ) && (
+      quest.includes("flee") || quest.includes("escape") ||
+      quest.includes("jedi world") || quest.includes("return to jedi") || quest.includes("deliver to jedi")
+    );
+
+    const sithBossNames = ["darth", "plagueis", "sidious", "tyranus", "vader", "maul", "bane", "nihilus"];
+    const sithBossFight = (
+      (quest.includes("fight") || quest.includes("duel") || quest.includes("battle")) &&
+      sithBossNames.some(name => quest.includes(name))
+    );
+
+    const withJediSupport = quest.includes("jedi") &&
+      withJediPhrases.some(p => quest.includes(p));
+
+    const jediSentimentPhrases = [
+      "farewell speech", "say goodbye to the old ways", "sunset meditation",
+      "reflect on your path", "peaceful moment", "on a cliff", "final words", "quiet reflection"
+    ];
+    const jediSentimentDetected = jediSentimentPhrases.some(p => quest.includes(p));
+
+    const jediCodePhrases = ["recite", "repeat", "say", "speak", "chant"];
+    const reciteJediCode = (
+      (quest.includes("jedi code") || quest.includes("the code")) &&
+      jediCodePhrases.some(verb => quest.includes(verb))
+    );
+
+    const huntingDarkTargetsForGood = (
+      (quest.includes("hunt down") || quest.includes("track") || quest.includes("pursue")) &&
+      (quest.includes("dark side") || quest.includes("sith")) &&
+      (quest.includes("assassin") || quest.includes("traitor") || quest.includes("agent"))
+    );
+
+    let leaning = 0;
+
+    for (const phrase of jediPhrases) {
+      if (quest.includes(phrase)) leaning += 1;
+    }
+
+    for (const phrase of sithPhrases) {
+      if (quest.includes(phrase)) leaning -= 1;
+    }
+
+    const duelDetected = jediCombatPairs.some(action => quest.includes(action));
+    const cleanMethod = jediMethodKeywords.some(method => quest.includes(method));
+    if (duelDetected && cleanMethod) leaning += 1;
+
+    if (heroicInfiltration) leaning += 1;
+    if (sithBossFight) leaning += 1;
+    if (withJediSupport) leaning += 1;
+    if (jediSentimentDetected) leaning += 1;
+    if (reciteJediCode) leaning += 1;
+    if (huntingDarkTargetsForGood) leaning += 1;
+
+    if (leaning > 0) affinity += 10;
+    if (leaning < 0) affinity -= 10;
+
+    affinity = Math.max(-100, Math.min(100, affinity));
+    updateAffinityBar();
+
+    originalCompleteQuest();
+  };
+
+  updateAffinityBar();
+
+let unlockedJediLore = [], unlockedSithLore = [], unlockedNeutralLore = [];
+let currentCodex = "jedi";
+let affinityScore = 50;
+
+const jediLore = [
+  "The Force binds all living things, and Jedi walk in harmony with its light.",
+  "Yoda once said: 'Train yourself to let go of everything you fear to lose.'",
+  "Ilum’s frozen caverns once echoed with the hum of kyber crystal resonance.",
+  "Jedi consulars believed diplomacy was the first weapon of peace.",
+  "Archives reveal a Jedi who saved Sith children to break the cycle of hate.",
+  "Legends say a Jedi Knight once healed an entire battalion with the Force.",
+  "Balance is not stillness — it is constant action guided by clarity.",
+  "Meditation chambers on Coruscant still resonate with peaceful energy.",
+  "The Jedi code is a vow, not a rule. Compassion gives it strength.",
+  "Jedi robes are worn plain to reflect humility, not to hide power."
+];
+const sithLore = [
+  "Power is purpose. The Sith embrace this truth — unflinching and unshackled.",
+  "Acolytes who pass the Korriban trials often lose more than they gain.",
+  "Sith Lords shape galaxies with fear, ambition, and relentless will.",
+  "Pain is a lesson. A scar is proof you survived.",
+  "Ancient Sith spirits still haunt the tombs of Moraband.",
+  "Anger grants strength, but clarity sharpens it into a blade.",
+  "A Sith holocron was once used to collapse an entire city in silence.",
+  "To dominate the Force is to dominate reality itself.",
+  "There is no honor in mercy. Only weakness disguised.",
+  "The Dark Side speaks in silence, in visions, and in screams."
+];
+const neutralLore = [
+  "The Force flows through all things — neither light nor dark.",
+  "Balance is forged in conflict and tested in choice.",
+  "A lone wanderer recorded the stars without choosing a side.",
+  "The Jedi and Sith alike fear what they cannot control.",
+  "A bounty hunter once meditated and claimed to hear the Force.",
+  "The galaxy’s fate turns on more than just lightsabers.",
+  "A hermit on Jedha described the Force as 'the great breath.'",
+  "There are truths lost in silence between philosophies.",
+  "Some believe love, not power, is the Force's true source.",
+  "In shadow and flame, even neutrality must make a stand."
+];
+
+function updateAffinityBar() {
+  const bar = document.getElementById("affinityBar");
+  const text = document.getElementById("affinityText");
+  let alignment = "Neutral";
+  if (affinityScore >= 67) alignment = "Light Side";
+  else if (affinityScore <= 33) alignment = "Dark Side";
+  text.innerText = alignment;
+  const percent = Math.max(0, Math.min(100, affinityScore));
+  bar.style.background = `linear-gradient(to right, red ${100 - percent}%, blue ${percent}%)`;
+}
+function adjustAffinity(type) {
+  if (type === "jedi") affinityScore = Math.min(100, affinityScore + 5);
+  else if (type === "sith") affinityScore = Math.max(0, affinityScore - 5);
+  updateAffinityBar();
+}
+function unlockLoreEntry(level) {
+  if (level <= 10 || level % 5 === 0) {
+    if (affinityScore >= 67) {
+      const i = unlockedJediLore.length;
+      if (i < jediLore.length) unlockedJediLore.push(jediLore[i]);
+    } else if (affinityScore <= 33) {
+      const i = unlockedSithLore.length;
+      if (i < sithLore.length) unlockedSithLore.push(sithLore[i]);
+    } else {
+      const i = unlockedNeutralLore.length;
+      if (i < neutralLore.length) unlockedNeutralLore.push(neutralLore[i]);
+    }
+    renderCodex();
+  }
+}
+function switchCodex(type) {
+  currentCodex = type;
+  renderCodex();
+}
+function renderCodex() {
+  const container = document.getElementById("codexEntries");
+  container.innerHTML = "";
+  const source = currentCodex === "jedi" ? unlockedJediLore :
+                 currentCodex === "sith" ? unlockedSithLore :
+                 unlockedNeutralLore;
+  source.forEach((entry, index) => {
+    const li = document.createElement("li");
+    li.textContent = `Entry ${index + 1}: ${entry}`;
+    li.style.marginBottom = "10px";
+    container.appendChild(li);
+  });
+}
+function toggleCodex() {
+  const panel = document.getElementById("codexPanel");
+  panel.style.display = panel.style.display === "none" ? "block" : "none";
+}
+function saveProgress() {
+  const data = {
+    xp, level, hunger, unlockedJediLore, unlockedSithLore, unlockedNeutralLore,
+    codename: document.getElementById("codenameDisplay").innerText,
+    affinityScore
+  };
+  localStorage.setItem("swvrSave", JSON.stringify(data));
+  alert("Progress saved.");
+}
+function loadProgress() {
+  const saved = localStorage.getItem("swvrSave");
+  if (saved) {
+    const data = JSON.parse(saved);
+    xp = data.xp || 0;
+    level = data.level || 1;
+    hunger = data.hunger || 100;
+    affinityScore = data.affinityScore || 50;
+    unlockedJediLore = data.unlockedJediLore || [];
+    unlockedSithLore = data.unlockedSithLore || [];
+    unlockedNeutralLore = data.unlockedNeutralLore || [];
+    document.getElementById("codenameDisplay").innerText = data.codename || "";
+    document.getElementById("xpText").innerText = xp + " / " + (level * 100) + " XP";
+    document.getElementById("level").innerText = level;
+  updateCodenameDisplay();
+    document.getElementById("xpFill").style.width = (xp / (level * 100) * 100) + "%";
+  
+    updateHungerBar();
+    updateAffinityBar();
+    renderCodex();
+  }
+}
+function resetProgress() {
+  if (confirm("Reset all progress?")) {
+    localStorage.removeItem("swvrSave");
+    
+  }
+}
+window.onload = loadProgress;
+
+
+  const planets = [
+    "Coruscant", "Tatooine", "Naboo", "Hoth", "Mustafar",
+    "Endor", "Kamino", "Dagobah", "Alderaan", "Geonosis"
+  ];
+
+  function getRandomPlanetTime() {
+    const planet = planets[Math.floor(Math.random() * planets.length)];
+    const cycle = Math.floor(3000 + Math.random() * 2000);
+    return `Cycle ${cycle} – ${planet} Standard Time`;
+  }
+
+  function updateGalacticTime() {
+    const questText = document.getElementById("questText")?.innerText.toLowerCase() || "";
+    const matchedPlanet = planets.find(p => questText.includes(p.toLowerCase()));
+    const selectedPlanet = matchedPlanet || planets[Math.floor(Math.random() * planets.length)];
+    const cycle = Math.floor(3000 + Math.random() * 2000);
+    document.getElementById("galacticTime").innerText = `Cycle ${cycle} – ${selectedPlanet} Standard Time`;
+  }
+
+  setInterval(updateGalacticTime, 10000); // update every 10 seconds
+  window.onload = () => {
+    updateBars();
+    updateGalacticTime();
+  };
+
+updateCodenameDisplay();
+</script>
+
+
+<div id="codexPanel" style="display:none; position:fixed; top:10%; left:10%; width:80%; height:70%; background:rgba(0,0,0,0.95); color:#00c6ff; border:2px solid #00c6ff; padding:20px; overflow-y:auto; z-index:9999; border-radius:10px;">
+  <h2>Codex Lore Entries</h2>
+  <div style="margin-bottom:10px;">
+    <button onclick="switchCodex('jedi')">Jedi Codex</button>
+    <button onclick="switchCodex('neutral')">Neutral Codex</button>
+    <button onclick="switchCodex('sith')">Sith Codex</button>
+  </div>
+  <ul id="codexEntries" style="list-style:none; padding:0;"></ul>
+  <button onclick="toggleCodex()" style="position:absolute; top:10px; right:10px;">Close</button>
+</div>
+<button onclick="toggleCodex()" style="position:fixed; top:20px; right:20px; z-index:9998;">Codex</button>
+
+
+<button onclick="resetProgress()" style="position:fixed; bottom:10px; left:10px; font-size:0.7em; padding:5px 10px; opacity:0.6; z-index:9999;">Reset Progress</button>
+
+
+<div id="galacticTimePanel">
+  <strong>Galactic Time:</strong> <span id="galacticTime">Cycle 4232 – Coruscant Standard Time</span>
+</div>
+
+
+<audio id="buttonBeep" src="short-beep-tone-47916.mp3" preload="auto"></audio>
+<script>
+  const beep = document.getElementById("buttonBeep");
+  document.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      beep.currentTime = 0;
+      beep.play();
+    });
+  });
+updateCodenameDisplay();
+</script>
+
+<audio id="ambientHum" src="mechanical-hum-64405.mp3" autoplay loop></audio>
+<script>
+  window.addEventListener('DOMContentLoaded', () => {
+    const ambient = document.getElementById("ambientHum");
+    ambient.volume = 0.35;
+  });
+updateCodenameDisplay();
+</script>
+
+<script>
+function saveProgress() {
+  const data = {
+    hunger: hunger,
+    xp: xp,
+    level: level,
+    codename: document.getElementById("codenameInput")?.value || "Player",
+    affinity: document.getElementById("affinityText").innerText
+  };
+  localStorage.setItem("swvrSaveData", JSON.stringify(data));
+  alert("Progress saved!");
+}
+
+function loadProgress() {
+  const saved = JSON.parse(localStorage.getItem("swvrSaveData"));
+  if (saved) {
+    hunger = saved.hunger || 100;
+    xp = saved.xp || 0;
+    level = saved.level || 1;
+    document.getElementById("codenameInput").value = saved.codename || "Player";
+    document.getElementById("affinityText").innerText = saved.affinity || "Neutral";
+
+    updateHungerBar();
+    document.getElementById("xpText").innerText = xp + " / " + (level * 100) + " XP";
+    document.getElementById("level").innerText = level;
+    document.getElementById("xpFill").style.width = (xp / (level * 100) * 100) + "%";
+    updateCodenameDisplay();
+  }
+}
+
+window.onload = loadProgress;
+</script>
+
+</body>
